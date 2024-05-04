@@ -1,8 +1,9 @@
+from typing import List
 import customtkinter
 import os
-from PIL import Image
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import matplotlib.pyplot as plt
+# from PIL import Image
+# from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+# import matplotlib.pyplot as plt
 
 # flake8: noqa
 
@@ -95,52 +96,81 @@ class TableLine(customtkinter.CTkFrame):
         super().__init__(master, corner_radius=0, fg_color=color)
 
         self.app: App = app
+        self.parent: TableFrame = master
         self.values = values
+        self.elements: List[customtkinter.CTkBaseClass] = []
 
         button_column = len(values)
 
         for column, value in enumerate(values):
             column_value = customtkinter.CTkLabel(master, text=value)
+            self.elements.append(column_value)
             column_value.grid(row=row, column=column, padx=10, pady=(10, 0), sticky="")
         if include_modify:
-            modify_button = customtkinter.CTkButton(master, text="Modify")
+            modify_button = customtkinter.CTkButton(master, text="Modify", command=self.modify_table)
+            self.elements.append(modify_button)
             modify_button.grid(row=row, column=button_column, padx=10, pady=(10, 0))
             button_column += 1
         if include_remove:
             remove_button = customtkinter.CTkButton(master, text="Remove")
+            self.elements.append(remove_button)
             remove_button.grid(row=row, column=button_column, padx=10, pady=(10, 0))
+        
+    def modify_table(self):
+        self.parent.refresh_table([["1", "Piz", "10", "UOM", "Amount"], ["2", "Piz", "10", "UOM", "Amount"], ["3", "Piz", "10", "UOM", "Amount"], ["4", "Piz", "10", "UOM", "Amount"], ["5", "Piz", "10", "UOM", "Amount"]])
 
-    
+
 class TableFrame(customtkinter.CTkScrollableFrame):
-    def __init__(self, master, app, column_names, values, include_modify, include_remove):
-        super().__init__(master, corner_radius=0, fg_color="transparent")
+    def __init__(self, master, app, column_names, values, include_modify, include_remove, search: bool = True):
+        super().__init__(master, corner_radius=0)
 
         self.app: App = app
+        self.parent = master
         self.column_names = column_names
         self.columns = []
-        self.lines = []
+        self.lines: List[TableLine] = []
         self.values = values
+        self.modify = include_modify
+        self.remove = include_remove
 
         self.grid_columnconfigure(len(column_names)+2, weight=1)
 
-        # TODO: Call correct method to get data to display
+        self.create_table()
 
+        if search:
+            self.search = customtkinter.CTkEntry(self, width=250, placeholder_text="item name...")
+            self.search.grid(row=0, column=len(column_names)+2, sticky="e", padx=50)
+            self.search.bind("<Return>", self.get_search_string)
+
+    def create_table(self):
+        # Create column labels
         for i, name in enumerate(self.column_names):
             label = customtkinter.CTkLabel(self, text=name, font=("", 15, "bold"))
             label.grid(row=0, column=i, padx=10, pady=(10, 0), sticky="")
             self.columns.append(label)
 
+        # Create TableLine instances
         for row, values in enumerate(self.values):
-            line = TableLine(self, self.app, row+1, values, include_modify, include_remove, "grey70" if row % 2 == 0 else "grey90")
+            self.lines.append(TableLine(self, self.app, row+1, values, self.modify, self.remove, "grey70" if row % 2 == 0 else "grey90"))
+
+    def refresh_table(self, new_values):
+        # Clear existing lines
+        for line in self.lines:
+            for element in line.elements:
+                element.grid_forget()
+                element.destroy()
+        self.lines = []
+        self.values = new_values
+        # Recreate TableLine instances with updated values
+        for row, values in enumerate(self.values):
+            line = TableLine(self, self.app, row+1, values, self.modify, self.remove, "grey70" if row % 2 == 0 else "grey90")
             self.lines.append(line)
-        
-        self.search = customtkinter.CTkEntry(self, width=250, placeholder_text="item name...")
-        self.search.grid(row=0, column=len(column_names)+2, sticky="e", padx=50)
-        self.search.bind("<Return>", self.get_search_string)
 
     def get_search_string(self, sequence):
         string = self.search.get()
         print(string)
+        # new_values = FAKE_GET_LINES
+        # self.refresh_table(new_values)
 
 
 class HomeFrame(customtkinter.CTkFrame):
@@ -172,12 +202,15 @@ class HomeFrame(customtkinter.CTkFrame):
 
     def open_popup_form(self, button_type):
         if button_type == "order":
-            form = DynamicPopup(self.app, "Create Order", [])
+            form = DynamicPopup(self.app, "Create Order", [], create_order=True)
         elif button_type == "newuser":
             form = DynamicPopup(self.app, "Create User", ["ID:", "Password:"])
         elif button_type == "deleteuser":
             form = DynamicPopup(self.app, "Remove User", ["ID:", "Password:"])
         self.app.wait_window(form)
+        print(f"Order items are {form.order_items}")
+        print(f"User to remove or add is {form.input_values}")
+
 
 
 class InventoryFrame(customtkinter.CTkFrame):
@@ -190,19 +223,20 @@ class InventoryFrame(customtkinter.CTkFrame):
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        self.inventory_table_frame = TableFrame(self, self.app, ["Id", "Name", "Price", "UOM", "Amount"], [["1", "Pizza", "10", "UOM", "Amount"], ["1", "Pizza", "10", "UOM", "Amount"], ["1", "Pizza", "10", "UOM", "Amount"], ["1", "Pizza", "10", "UOM", "Amount"], ["1", "Pizza", "10", "UOM", "Amount"]], True, False)
-        self.inventory_table_frame.grid(row=1, column=0, sticky="nwes", padx=50, pady=0)
+        self.table_frame = TableFrame(self, self.app, ["Id", "Name", "Price", "UOM", "Amount"], [["1", "Pizza", "10", "UOM", "Amount"], ["1", "Pizza", "10", "UOM", "Amount"], ["1", "Pizza", "10", "UOM", "Amount"], ["1", "Pizza", "10", "UOM", "Amount"], ["1", "Pizza", "10", "UOM", "Amount"]], True, False)
+        self.table_frame.grid(row=1, column=0, sticky="nwes", padx=50, pady=0)
 
         self.view_label = customtkinter.CTkLabel(self, text=f"Inventory", font=("", 24, "bold"))
         self.view_label.grid(row=0, column=0, sticky="nwes", padx=(150, 0))
         self.signed_in_label = customtkinter.CTkLabel(self, text=f"Signed in as: {self.app.user}")
         self.signed_in_label.grid(row=0, column=1, padx=20, pady=20, sticky="e")
-        self.add_item_button = customtkinter.CTkButton(self, text="Add item")
+        self.add_item_button = customtkinter.CTkButton(self, text="Add item", command=self.open_popup_form)
         self.add_item_button.grid(row=2, column=1, padx=50, pady=20, sticky="e")
 
     def open_popup_form(self):
-        form = DynamicPopup(self.app)
+        form = DynamicPopup(self.app, "Add Item", ["Item ID:", "Amount:"])
         self.app.wait_window(form)
+        print(f"Item to add is {form.input_values}")
 
 
 class OrderHistoryFrame(customtkinter.CTkFrame):
@@ -215,8 +249,8 @@ class OrderHistoryFrame(customtkinter.CTkFrame):
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        self.inventory_table_frame = TableFrame(self, self.app, ["Id", "Value", "Date"], [["1", "1337", "1/2/3"], ["1", "1337", "1/2/3"], ["1", "1337", "1/2/3"], ["1", "1337", "1/2/3"], ["1", "1337", "1/2/3"]], True, True)
-        self.inventory_table_frame.grid(row=1, column=0, sticky="nwes", padx=50, pady=0)
+        self.table_frame = TableFrame(self, self.app, ["Id", "Value", "Date"], [["1", "1337", "1/2/3"], ["1", "1337", "1/2/3"], ["1", "1337", "1/2/3"], ["1", "1337", "1/2/3"], ["1", "1337", "1/2/3"]], True, True)
+        self.table_frame.grid(row=1, column=0, sticky="nwes", padx=50, pady=0)
 
         self.view_label = customtkinter.CTkLabel(self, text=f"Order History", font=("", 24, "bold"))
         self.view_label.grid(row=0, column=0, sticky="nwes", padx=(150, 0))
@@ -236,19 +270,21 @@ class MenuFrame(customtkinter.CTkFrame):
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        self.inventory_table_frame = TableFrame(self, self.app, ["Menu Id", "Name", "Price"], [["1", "Pizza", "10"], ["1", "Pizza", "10"], ["1", "Pizza", "10"], ["1", "Pizza", "10"], ["1", "Pizza", "10"]], False, True)
-        self.inventory_table_frame.grid(row=1, column=0, sticky="nwes", padx=50, pady=0)
+        self.table_frame = TableFrame(self, self.app, ["Menu Id", "Name", "Price"], [["1", "Pizza", "10"], ["1", "Pizza", "10"], ["1", "Pizza", "10"], ["1", "Pizza", "10"], ["1", "Pizza", "10"]], False, True)
+        self.table_frame.grid(row=1, column=0, sticky="nwes", padx=50, pady=0)
 
         self.view_label = customtkinter.CTkLabel(self, text=f"Menu", font=("", 24, "bold"))
         self.view_label.grid(row=0, column=0, sticky="nwes", padx=(150, 0))
         self.signed_in_label = customtkinter.CTkLabel(self, text=f"Signed in as: {self.app.user}")
         self.signed_in_label.grid(row=0, column=1, padx=20, pady=20, sticky="e")
-        self.add_item_button = customtkinter.CTkButton(self, text="Add menu item")
+        self.add_item_button = customtkinter.CTkButton(self, text="Add menu item", command=self.open_popup_form)
         self.add_item_button.grid(row=2, column=1, padx=50, pady=20, sticky="e")
 
     def open_popup_form(self):
-        form = DynamicPopup(self.app)
+        form = DynamicPopup(self.app, "Add Menu Item", ["Name:", "Price:"], create_menu=True)
         self.app.wait_window(form)
+        print(f"Menu ingredient items are {form.order_items}")
+        print(f"Menu item name and price is {form.input_values}")
 
 
 class FinanceFrame(customtkinter.CTkFrame):
@@ -267,21 +303,21 @@ class FinanceFrame(customtkinter.CTkFrame):
         self.signed_in_label = customtkinter.CTkLabel(self, text=f"Signed in as: {self.app.user}")
         self.signed_in_label.grid(row=0, column=2, padx=20, pady=20, sticky="e")
 
-        fig, ax = plt.subplots(facecolor='lightgrey')
-        ax.plot(["October", "November", "December", "January"], [1, 4, 2, 3])
-        ax.set_title("Monthly revenue")
+        # fig, ax = plt.subplots(facecolor='lightgrey')
+        # ax.plot(["October", "November", "December", "January"], [1, 4, 2, 3])
+        # ax.set_title("Monthly revenue")
 
-        fig2, ax2 = plt.subplots(facecolor='darkgrey')
-        ax2.bar(["October", "November", "December", "January"], [1, 4, 2, 3])
-        ax2.set_title("Monthly orders")
+        # fig2, ax2 = plt.subplots(facecolor='darkgrey')
+        # ax2.bar(["October", "November", "December", "January"], [1, 4, 2, 3])
+        # ax2.set_title("Monthly orders")
 
-        canvas = FigureCanvasTkAgg(fig, master=self)
-        canvas.draw()       
-        canvas.get_tk_widget().grid(row=1, column=0)
+        # canvas = FigureCanvasTkAgg(fig, master=self)
+        # canvas.draw()       
+        # canvas.get_tk_widget().grid(row=1, column=0)
 
-        canvas2 = FigureCanvasTkAgg(fig2, master=self)
-        canvas2.draw()
-        canvas2.get_tk_widget().grid(row=1, column=1)
+        # canvas2 = FigureCanvasTkAgg(fig2, master=self)
+        # canvas2.draw()
+        # canvas2.get_tk_widget().grid(row=1, column=1)
 
     
 class CustomMultiInputDialog(customtkinter.CTkToplevel):
@@ -316,39 +352,115 @@ class CustomMultiInputDialog(customtkinter.CTkToplevel):
 
 
 class DynamicPopup(customtkinter.CTkToplevel):
-    def __init__(self, parent, title, prompts):
+    def __init__(self, parent, title, prompts, create_order: bool = False, create_menu: bool = False):
         super().__init__(parent)
+        self.attributes("-topmost", True)
 
         self.app: App = parent
         self.title(title)
+        self.cancelled = False
         self.input_values = []
+        self.order_items = []
 
-        self.geometry("1200x675+680+300")
+        # TODO: dictionary for backend functions based on title
+
+        self.geometry("800x450+880+375")
         self.grid_columnconfigure(1, weight=1)
-        # self.grid_rowconfigure(2, weight=1)
+        if not create_menu:
+            self.grid_rowconfigure(0, weight=1)
+        if prompts and not create_menu:
+            self.grid_rowconfigure(1+2*len(prompts), weight=1)
 
         # Create input fields
         self.input_entries = []
         for i, prompt in enumerate(prompts):
-            label = customtkinter.CTkLabel(self, text=prompt)
-            label.grid(row=i*2, column=0, padx=20, pady=0, columnspan=2)
-            entry = customtkinter.CTkEntry(self)
-            entry.grid(row=i*2+1, column=0, padx=20, pady=0, sticky="we", columnspan=2)
+            label = customtkinter.CTkLabel(self, text=prompt, font=("", 14))
+            label.grid(row=i*2+1, column=0, padx=100 if not create_menu else 20, pady=0 if not create_menu else (20 if i == 0 else 0, 0), columnspan=3 if not create_menu else 1)
+            entry = customtkinter.CTkEntry(self, width=250)
+            entry.grid(row=i*2+2, column=0, padx=100 if not create_menu else 20, pady=0 if not create_menu else 0, columnspan=3 if not create_menu else 1)
             self.input_entries.append(entry)
 
-        # Add OK button
+        if create_menu:
+            self.added_items_frame = TableFrame(self, self.app, ["Name", "Amount"], [], False, False, search=False)
+            self.added_items_frame.grid(row=5, column=0, columnspan=1, rowspan=1, sticky="nesw", padx=20, pady=20)
+            self.add_item_button = customtkinter.CTkButton(self, text="Add Item", command=self.add_to_menu)
+            self.add_item_button.grid(row=1, column=3, rowspan=6, padx=20)
+
+        if create_order:
+            self.added_items_frame = TableFrame(self, self.app, ["Name", "Amount"], [], False, False, search=False)
+            self.added_items_frame.grid(row=0, column=0, columnspan=2, sticky="nesw", padx=20, pady=20)
+            self.add_item_button = customtkinter.CTkButton(self, text="Add Item", command=self.add_to_order)
+            self.add_item_button.grid(row=0, column=2, rowspan=3)
+
+        # Add Confirm button
         ok_button = customtkinter.CTkButton(self, text="Confirm", command=self.get_input_values)
-        ok_button.grid(row=len(prompts)+2, column=0, columnspan=2, padx=20, pady=20, sticky="we")
+        ok_button.grid(row=2*len(prompts)+2, column=0, columnspan=3, padx=100 if not create_menu else 20, pady=20)
 
+        # Add Cancel button
         cancel_button = customtkinter.CTkButton(self, text="Cancel", command=self.close)
-        cancel_button.grid(row=len(prompts)+2, column=2, padx=20, pady=20, sticky="we")
+        cancel_button.grid(row=2*len(prompts)+2, column=2, padx=20, pady=20, sticky="we")
 
-        # password_entry: customtkinter.CTkEntry = self.input_entries[1]
-        # password_entry.bind("<Return>", self.get_input_values)
+    def add_to_order(self):
+        self.create_order_add_item("order")
+
+    def add_to_menu(self):
+        self.create_order_add_item("menu")
+
+    def create_order_add_item(self, type: str):
+        self.attributes("-topmost", False)
+        form = AddItemPopup(self)
+        self.app.wait_window(form)
+        self.order_items.append(form.input_values)
+        print(self.order_items)
+        self.added_items_frame.refresh_table(self.order_items)
+        self.attributes("-topmost", True)
 
     def get_input_values(self, sequence=None):
         self.input_values = [entry.get() for entry in self.input_entries]
-        print(self.input_values)
+        # TODO: call backend
+        self.destroy()
+        self.app.focus()
+
+    def close(self):
+        self.destroy()
+        self.cancelled = True
+        self.app.focus()
+
+
+class AddItemPopup(customtkinter.CTkToplevel):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.attributes("-topmost", True)
+
+        self.app: App = parent
+        self.title("Add menu item")
+        self.input_values = []
+
+        self.geometry("400x225+1080+450")
+        self.grid_columnconfigure(1, weight=1)
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_rowconfigure(5, weight=1)
+
+        self.id_label = customtkinter.CTkLabel(self, text="ID:")
+        self.id_label.grid(row=1, column=0, columnspan=3)
+        self.id_entry = customtkinter.CTkEntry(self, width=200)
+        self.id_entry.grid(row=2, column=0, columnspan=3)
+        self.amount_label = customtkinter.CTkLabel(self, text="Amount:")
+        self.amount_label.grid(row=3, column=0, columnspan=3)
+        self.amount_entry = customtkinter.CTkEntry(self, width=200)
+        self.amount_entry.grid(row=4, column=0, columnspan=3)
+
+        # Add Confirm button
+        ok_button = customtkinter.CTkButton(self, text="Confirm", command=self.get_input_values)
+        ok_button.grid(row=6, column=0, columnspan=1, padx=20, pady=20)
+
+        # Add Cancel button
+        cancel_button = customtkinter.CTkButton(self, text="Cancel", command=self.close)
+        cancel_button.grid(row=6, column=2, padx=20, pady=20, sticky="we")
+
+    def get_input_values(self, sequence=None):
+        self.input_values = [entry.get() for entry in [self.id_entry, self.amount_entry]]
+        # TODO: call backend
         self.destroy()
         self.app.focus()
 
@@ -394,15 +506,15 @@ if __name__ == "__main__":
     app = App()
     x_position = (app.winfo_screenwidth() - 300) // 2  # Center horizontally
     y_position = (app.winfo_screenheight() - 350) // 2  # Center vertically
-    auth = False
-    while not auth:
-        dialog = CustomMultiInputDialog(app, "Sign In", ["ID:", "Password:"])
-        dialog.geometry(f"300x200+{x_position}+{y_position}")
-        app.wait_window(dialog)
-        if dialog.input_values == ['13', 'panbohprinas']:
-            app.user = dialog.input_values[0]
-            print(app.user)
-            auth = True
+    # auth = False
+    # while not auth:
+    #     dialog = CustomMultiInputDialog(app, "Sign In", ["ID:", "Password:"])
+    #     dialog.geometry(f"300x200+{x_position}+{y_position}")
+    #     app.wait_window(dialog)
+    #     if dialog.input_values == ['13', 'panbohprinas']:
+    #         app.user = dialog.input_values[0]
+    #         print(app.user)
+    #         auth = True
     app.init_frames()
     app.navigation_frame.grid(row=0, column=0, sticky="nsew")
     app.navigation_frame.select_frame_by_name("home")
