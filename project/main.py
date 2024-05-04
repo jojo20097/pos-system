@@ -28,7 +28,8 @@ class MenuItemOrder(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     menu_item_id = Column("menu_item_id", Integer, ForeignKey("menu_items.id"))
     order_id = Column("order_id", Integer, ForeignKey("orders.id"))
-
+    quantity = Column(Integer)
+ 
 
 class ItemMenu(Base):
     __tablename__ = "items_menu"
@@ -61,6 +62,7 @@ class Item(Base):
     value_per_uom: Mapped[int] = mapped_column(Integer)
     uom: Mapped[str] = mapped_column(String)
     inventory_item: Mapped["InventoryItem"] = relationship(back_populates="item", uselist=False, cascade="all")
+    menu_resources: Mapped[list["MenuResource"]] = relationship("MenuResource", cascade="all")
 
     def __init__(self, name: str, value_per_uom: int, uom: str) -> None:
         self.name = name
@@ -91,8 +93,9 @@ class MenuResource(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     amount: Mapped[int] = mapped_column(Integer)
     item_id: Mapped[int] = mapped_column(Integer, ForeignKey("items.id"))
-    item: Mapped["Item"] = relationship("Item", lazy="joined")
-    menu_items: Mapped[list["MenuItem"]] = relationship(secondary="items_menu")
+    item: Mapped["Item"] = relationship(back_populates="menu_resources")
+    
+    menu_items: Mapped[list["MenuItem"]] = relationship(secondary="items_menu", back_populates="items")
 
     def __init__(self, amount: int, item: Item) -> None:
         self.amount = amount
@@ -108,10 +111,9 @@ class MenuItem(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String)
     cost: Mapped[int] = mapped_column(Integer)
-
-
-    items: Mapped[list["MenuResource"]] = relationship(secondary="items_menu", overlaps="menu_items")
-    order_items: Mapped[list["Order"]] = relationship(secondary="menu_items_order")
+    
+    items: Mapped[list["MenuResource"]] = relationship(secondary="items_menu", back_populates="menu_items")
+    order_items: Mapped[list["Order"]] = relationship(secondary="menu_items_order", back_populates="items")
 
     def __init__(self, name: str, cost: int, items: list[MenuResource]) -> None:
         self.name = name
@@ -128,7 +130,8 @@ class Order(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     value: Mapped[int] = mapped_column(Integer)
     date: Mapped[TIMESTAMP] = mapped_column(TIMESTAMP, default=datetime.datetime.now())
-    items: Mapped[list["MenuItem"]] = relationship(secondary="menu_items_order", overlaps="order_items")
+    
+    items: Mapped[list["MenuItem"]] = relationship(secondary="menu_items_order", back_populates="order_items")
 
     def __init__(self, value: int, items: list[MenuItem]) -> None:
         self.value = value
@@ -859,4 +862,6 @@ class DatabaseAPI:
         return self.__order_int__.delete_order(order)
 
 
-handler = DatabaseAPI()
+
+
+    
