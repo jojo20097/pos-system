@@ -265,7 +265,7 @@ class ItemInterface:
             if s.name.lower().startswith(query.lower()):
                 best_matches.append(s)
 
-        return best_matches
+        return list(set(best_matches))
 
 
 class UserInterface:
@@ -487,7 +487,8 @@ class InventoryItemInterface:
             if s.item.name.lower().startswith(query.lower()):
                 best_matches.append(s)
 
-        return best_matches
+        return list(set(best_matches))
+
 
 class MenuResourceInterface:
 
@@ -617,7 +618,7 @@ class MenuItemInterface:
             if s.name.lower().startswith(query.lower()):
                 best_matches.append(s)
 
-        return best_matches
+        return list(set(best_matches))
         
 
 class OrderInterface:
