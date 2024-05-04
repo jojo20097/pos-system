@@ -27,7 +27,6 @@ class MenuItemOrder(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     menu_item_id = Column("menu_item_id", Integer, ForeignKey("menu_items.id"))
-    
     order_id = Column("order_id", Integer, ForeignKey("orders.id"))
 
 
@@ -35,7 +34,7 @@ class ItemMenu(Base):
     __tablename__ = "items_menu"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    item_id = Column("item_id", Integer, ForeignKey("menu_resources.item_id"))
+    menu_resources_id = Column("menu_resources_id", Integer, ForeignKey("menu_resources.id"))
     menu_id = Column("menu_id", Integer, ForeignKey("menu_items.id"))
 
 
@@ -62,7 +61,6 @@ class Item(Base):
     value_per_uom: Mapped[int] = mapped_column(Integer)
     uom: Mapped[str] = mapped_column(String)
     inventory_item: Mapped["InventoryItem"] = relationship(back_populates="item", uselist=False, cascade="all")
-    resource_item: Mapped["MenuResource"] = relationship(back_populates="item", uselist=False, cascade="all")
 
     def __init__(self, name: str, value_per_uom: int, uom: str) -> None:
         self.name = name
@@ -71,7 +69,6 @@ class Item(Base):
 
     def __repr__(self) -> str:
         return f"{self.name}"
-
 
 class InventoryItem(Base):
     __tablename__ = "inventory_items"
@@ -94,7 +91,7 @@ class MenuResource(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     amount: Mapped[int] = mapped_column(Integer)
     item_id: Mapped[int] = mapped_column(Integer, ForeignKey("items.id"))
-    item: Mapped["Item"] = relationship(back_populates="resource_item")
+    item: Mapped["Item"] = relationship("Item", lazy="joined")
     menu_items: Mapped[list["MenuItem"]] = relationship(secondary="items_menu")
 
     def __init__(self, amount: int, item: Item) -> None:
@@ -470,17 +467,13 @@ class MenuResourceInterface:
         return session.query(MenuResource).all()
     
     def add_item(self, item: Item, amount: int) -> Optional[MenuResource]:
-        existing_item = session.query(MenuResource).filter_by(item=item).all()
 
-        if existing_item:
-            return None
-        
         menu_res = MenuResource(amount, item)
 
         if self.__db_int__.add(menu_res):
             self.update_items()
             return menu_res
-        
+
         return None
 
     def edit_amount(self, item: MenuResource, amount: int) -> Optional[MenuResource]:
@@ -867,5 +860,3 @@ class DatabaseAPI:
 
 
 handler = DatabaseAPI()
-
-print(handler.login(1, "password"))
