@@ -27,6 +27,7 @@ class MenuItemOrder(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     menu_item_id = Column("menu_item_id", Integer, ForeignKey("menu_items.id"))
+    
     order_id = Column("order_id", Integer, ForeignKey("orders.id"))
 
 
@@ -34,7 +35,7 @@ class ItemMenu(Base):
     __tablename__ = "items_menu"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    item_id = Column("item_id", Integer, ForeignKey("items.id"))
+    item_id = Column("item_id", Integer, ForeignKey("menu_resources.id"))
     menu_id = Column("menu_id", Integer, ForeignKey("menu_items.id"))
 
 
@@ -61,7 +62,6 @@ class Item(Base):
     value_per_uom: Mapped[int] = mapped_column(Integer)
     uom: Mapped[str] = mapped_column(String)
     inventory_item: Mapped["InventoryItem"] = relationship(back_populates="item", uselist=False)
-    menu_items: Mapped[list["MenuItem"]] = relationship(secondary="items_menu")
 
     def __init__(self, name: str, value_per_uom: int, uom: str) -> None:
         self.name = name
@@ -87,6 +87,22 @@ class InventoryItem(Base):
     def __repr__(self) -> str:
         return f"{self.item.name} {self.amount}"
 
+class MenuResource(Base):
+    __tablename__ = "menu_resources"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    amount: Mapped[int] = mapped_column(Integer)
+    item_id: Mapped[int] = mapped_column(Integer, ForeignKey("items.id"))
+    item: Mapped["Item"] = relationship(back_populates="inventory_item")
+    menu_items: Mapped[list["MenuItem"]] = relationship(secondary="items_menu")
+
+    def __init__(self, amount: int, item: Item) -> None:
+        self.amount = amount
+        self.item = item
+
+    def __repr__(self) -> str:
+        return f"{self.item.name} {self.amount}"
+
 
 class MenuItem(Base):
     __tablename__ = "menu_items"
@@ -95,10 +111,10 @@ class MenuItem(Base):
     name: Mapped[str] = mapped_column(String)
     cost: Mapped[int] = mapped_column(Integer)
 
-    items: Mapped[list["Item"]] = relationship(secondary="items_menu")
+    items: Mapped[list["MenuResource"]] = relationship(secondary="items_menu")
     order_items: Mapped[list["Order"]] = relationship(secondary="menu_items_order")
 
-    def __init__(self, name: str, cost: int, items: list[Item]) -> None:
+    def __init__(self, name: str, cost: int, items: list[MenuResource]) -> None:
         self.name = name
         self.cost = cost
         self.items = items
@@ -132,7 +148,7 @@ class DatabaseInterface:
     EDIT = 2
     DELETE = 3
 
-    def handle(self, object: Union[Item, User, InventoryItem, MenuItem, Order], type: int) -> bool:
+    def handle(self, object: Union[Item, User, InventoryItem, MenuResource, MenuItem, Order], type: int) -> bool:
         try:
             if type == self.ADD:
                 session.add(object)
@@ -155,21 +171,21 @@ class DatabaseInterface:
         
         return True
     
-    def add(self, object: Union[Item, User, InventoryItem, MenuItem, Order]) -> bool:
+    def add(self, object: Union[Item, User, InventoryItem, MenuResource, MenuItem, Order]) -> bool:
 
         if not self.handle(object, self.ADD):
             return False
         
         return True
     
-    def edit(self, object: Union[Item, User, InventoryItem, MenuItem, Order]) -> bool:
+    def edit(self, object: Union[Item, User, InventoryItem, MenuResource, MenuItem, Order]) -> bool:
 
         if not self.handle(object, self.EDIT):
             return False
 
         return True
     
-    def delete(self, object: Union[Item, User, InventoryItem, MenuItem, Order]) -> bool:
+    def delete(self, object: Union[Item, User, InventoryItem, MenuResource, MenuItem, Order]) -> bool:
 
         if not self.handle(object, self.DELETE):
             return False
@@ -252,7 +268,7 @@ class ItemInterface:
 
 class UserInterface:
 
-    user: User
+    user: Optional[User]
     users: list[User]
     db_int: DatabaseInterface = DatabaseInterface()
 
@@ -297,7 +313,13 @@ class UserInterface:
         
         return False
     
+    def logout(self) -> None:
+        self.user = None
+    
     def create_user(self, cur_user_password: str, new_user_password: str, permissions: str) -> Optional[User]:
+
+        if self.user is None:
+            return None
 
         if self.user.permissions != "admin" and self.user.permissions != "root":
             print("Weak user permissions !")
@@ -318,6 +340,17 @@ class UserInterface:
 
         self.update_users()
         return user
+    
+    def create_root(self, root_password: str) -> bool:
+
+        hashed_password = self.make_hash(root_password)
+
+        root = User(hashed_password, "root")
+
+        if not self.db_int.add(root):
+            return False
+        
+        return True
 
     def change_password(self, target: User, old_password: str, new_password: str) -> bool:
 
@@ -337,6 +370,9 @@ class UserInterface:
         return True
     
     def delete_user(self, target: User, user_password: str) -> bool:
+
+        if self.user is None:
+            return False
 
         if self.user == target:
             return False
@@ -416,6 +452,55 @@ class InventoryItemInterface:
             return True
         
         return False
+    
+class MenuResourceInterface:
+
+    items: list[MenuResource]
+    db_int: DatabaseInterface = DatabaseInterface()
+
+    def __init__(self) -> None:
+        self.update_items()
+
+    def update_items(self) -> None:
+        self.items = self.get_items()
+
+    def get_items(self) -> list[MenuResource]:
+        return session.query(MenuResource).all()
+    
+    def add_item(self, item: Item, amount: int) -> bool:
+        existing_item = session.query(MenuResource).filter_by(item=item).all()
+
+        if existing_item:
+            return False
+        
+        inv_item = MenuResource(amount, item)
+
+        if self.db_int.add(inv_item):
+            self.update_items()
+            return True
+        
+        return False
+
+    def edit_amount(self, item: MenuResource, amount: int) -> bool:
+
+        if amount <= 0:
+            return False
+
+        item.amount = amount
+
+        if self.db_int.edit(item):
+            self.update_items()
+            return True
+
+        return False
+
+    def delete_item(self, item: MenuResource) -> bool:
+
+        if self.db_int.delete(item):
+            self.update_items()
+            return True
+        
+        return False
         
 
 class MenuItemInterface:
@@ -432,7 +517,10 @@ class MenuItemInterface:
     def get_items(self) -> list[MenuItem]:
         return session.query(MenuItem).all()
     
-    def add_item(self, name: str, cost: int, items: list[Item]) -> bool:
+    def get_available_items(self) -> list[MenuItem]:
+        return session.query(MenuItem).all()
+    
+    def add_item(self, name: str, cost: int, items: list[MenuResource]) -> bool:
 
         existing_item = session.query(MenuItem).filter_by(name=name).all()
 
@@ -446,7 +534,7 @@ class MenuItemInterface:
             return True
         
         return False
-    
+
     def edit_item(self, item, name: Optional[str] = None, cost: Optional[int] = None, items: Optional[list[Item]] = None) -> bool:
 
         if name is None and cost is None and (items is None or len(items) != 0):
