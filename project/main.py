@@ -864,4 +864,53 @@ class DatabaseAPI:
 
 
 
+handler = DatabaseAPI()
+
+print(handler.login(1, "password"))
+
+
+def database_seed() -> None:
+
+    items = [("salt", 1, "kg"), ("sugar", 1, "kg"),
+         ("water", 1, "l"), ("sunflower oil", 5, "l"),
+         ("butter", 15, "kg"), ("fat", 13, "kg"),
+         ("beans", 10, "kg"), ("corn", 9, "kg"),
+         ("spinach", 8, "kg"), ("tomatoes", 15, "kg"),
+         ("potatoes", 4, "kg"), ("bread", 3, "kg")]
+
+    for name, value, uom in items:
+        handler.add_item(name, value, uom)
+
+    db_items = handler.get_items()
+
+    if db_items is None:
+        return
+
+    for item in db_items:
+        handler.add_inventory_item(item, 100)
+
+    for item in db_items:
+        handler.add_menu_resource(item, 20)
+
+    resources = handler.get_menu_resources()
+
+    if resources is None:
+        return
+
+    soup = handler.add_menu_item("soup", 10, [resources[0], resources[1]])
+    pizza  = handler.add_menu_item("pizza", 20, [resources[2], resources[3], resources[4], resources[5]])
+
+    if soup is None or pizza is None:
+        return
+
+    order1 = handler.add_order(20, [soup, pizza, pizza])
+
+# orders = handler.get_orders()
+# print(orders[0].items)
+
+# print(orders[0].items)
+
+# items = handler.get_items()
+# for item in items:
+#     handler.delete_item(item)
     
