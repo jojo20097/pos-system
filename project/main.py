@@ -535,7 +535,7 @@ class MenuItemInterface:
         
         return False
 
-    def edit_item(self, item, name: Optional[str] = None, cost: Optional[int] = None, items: Optional[list[Item]] = None) -> bool:
+    def edit_item(self, item: MenuItem, name: Optional[str] = None, cost: Optional[int] = None, items: Optional[list[Item]] = None) -> bool:
 
         if name is None and cost is None and (items is None or len(items) != 0):
             return False
@@ -601,7 +601,7 @@ class OrderInterface:
         
         return False
     
-    def edit_order(self, order: Order, value: int, items: list[MenuItem]) -> bool:
+    def edit_order(self, order: Order, value: Optional[int] = None, items: Optional[list[MenuItem]] = None) -> bool:
 
         if value is None and (items is None or len(items) != 0):
             return False
@@ -624,6 +624,121 @@ class OrderInterface:
             return True
         
         return False
+
+
+class DatabaseAPI:
+
+    item_int: ItemInterface = ItemInterface()
+    user_int: UserInterface = UserInterface()
+    inventory_item_int: InventoryItemInterface = InventoryItemInterface()
+    menu_resource_int: MenuResourceInterface = MenuResourceInterface()
+    menu_item_int: MenuItemInterface = MenuItemInterface()
+    order_int: OrderInterface = OrderInterface()
+
+    # --- Basic Items API --- #
+
+    def get_items(self) -> list[Item]:
+        return self.item_int.get_items()
+    
+    def add_item(self, name: str, value: int, uom: str) -> bool:
+        return self.item_int.add_item(name, value, uom)
+    
+    def edit_item(self, item: Item, name: Optional[str] = None, value: Optional[int] = None) -> bool:
+        return self.item_int.edit_item(item, name, value)
+    
+    def delete_item(self, item: Item) -> bool:
+        return self.item_int.delete_item(item)
+    
+    def search_item(self, query: str) -> list[Item]:
+        return self.item_int.search_item(query)
+    
+    # --- User API --- #
+
+    def get_users(self) -> list[User]:
+        return self.user_int.get_users()
+    
+    def login(self, user_id: int, password: str) -> bool:
+        return self.user_int.login(user_id, password)
+    
+    def logout(self) -> None:
+        self.user_int.logout()
+
+    def create_user(self, cur_user_password: str, new_user_password: str, permissions: str) -> Optional[User]:
+        return self.user_int.create_user(cur_user_password, new_user_password, permissions)
+    
+    def create_root(self, root_password: str) -> bool:
+        return self.user_int.create_root(root_password)
+    
+    def change_password(self, target: User, old_password: str, new_password: str) -> bool:
+        return self.user_int.change_password(target, old_password, new_password)
+    
+    def delete_user(self, target: User, user_password: str) -> bool:
+        return self.user_int.delete_user(target, user_password)
+    
+    # --- Inventory Item API --- #
+
+    def get_inventory_items(self) -> list[InventoryItem]:
+        return self.inventory_item_int.get_items()
+    
+    def add_inventory_item(self, item: Item, amount: int) -> bool:
+        return self.inventory_item_int.add_item(item, amount)
+    
+    def sub_inventory_item_amount(self, item: InventoryItem, amount: int) -> bool:
+        return self.inventory_item_int.sub_amount(item, amount)
+    
+    def add_inventory_item_amount(self, item: InventoryItem, amount: int) -> bool:
+        return self.inventory_item_int.add_amount(item, amount)
+    
+    def delete_inventory_item(self, item: InventoryItem) -> bool:
+        return self.inventory_item_int.delete_item(item)
+    
+    # --- Menu Resource API --- #
+
+    def get_menu_resources(self) -> list[MenuResource]:
+        return self.menu_resource_int.get_items()
+    
+    def add_menu_resource(self, item: Item, amount: int) -> bool:
+        return self.menu_resource_int.add_item(item, amount)
+    
+    def edit_menu_resource_amount(self, item: MenuResource, amount: int) -> bool:
+        return self.menu_resource_int.edit_amount(item, amount)
+    
+    def delete_menu_resource(self, item: MenuResource) -> bool:
+        return self.menu_resource_int.delete_item(item)
+    
+    # --- Menu Item API --- #
+
+    def get_menu_items(self) -> list[MenuItem]:
+        return self.menu_item_int.get_items()
+    
+    def get_menu_items_available(self) -> list[MenuItem]:
+        return self.menu_item_int.get_available_items()
+    
+    def search_menu_item(self, query: str) -> list[MenuItem]:
+        return self.menu_item_int.search_item(query)
+    
+    def add_menu_item(self, name: str, cost: int, items: list[MenuResource]) -> bool:
+        return self.menu_item_int.add_item(name, cost, items)
+    
+    def edit_menu_item(self, item: MenuItem, name: Optional[str] = None, cost: Optional[int] = None, items: Optional[list[Item]] = None) -> bool:
+        return self.menu_item_int.edit_item(item, name, cost, items)
+    
+    def delete_menu_item(self, item: MenuItem) -> bool:
+        return self.menu_item_int.delete_item(item)
+    
+    # --- Order API --- #
+
+    def get_orders(self) -> list[Order]:
+        return self.order_int.get_orders()
+    
+    def add_order(self, value: int, items: list[MenuItem]) -> bool:
+        return self.order_int.add_order(value, items)
+    
+    def edit_order(self, order: Order, value: Optional[int] = None, items: Optional[list[MenuItem]] = None) -> bool:
+        return self.order_int.edit_order(order, value, items)
+    
+    def delete_order(self, order: Order) -> bool:
+        return self.order_int.delete_order(order)
 
 
 # item_int = ItemInterface()
