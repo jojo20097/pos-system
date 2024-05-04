@@ -379,9 +379,6 @@ class UserInterface:
         if self.user == target:
             return None
         
-        if self.user.permissions not in ["admin", "root"]:
-            return None
-        
         if not self.verify_password(self.user, user_password):
             return None
         
@@ -390,6 +387,15 @@ class UserInterface:
 
         self.update_users()
         return target
+    
+    def delete_user_by_id(self, target: int, user_password: str) -> Optional[User]:
+
+        user = session.query(User).filter(User.id == target).first()
+        
+        if user is None:
+            return None
+
+        return self.delete_user(user, user_password)
 
     
 class InventoryItemInterface:
@@ -405,6 +411,22 @@ class InventoryItemInterface:
 
     def get_items(self) -> list[InventoryItem]:
         return session.query(InventoryItem).all()
+    
+    def add_new_item(self, name: str, value: int, uom: str, amount: int) -> Optional[InventoryItem]:
+
+        existing_item = session.query(Item).filter_by(name=name).all()
+
+        if existing_item:
+            return None
+        
+        item = Item(name, value, uom)
+
+        if self.__db_int__.add(item):
+            self.update_items()
+            return self.add_item(item, amount)
+        
+        return None
+
     
     def add_item(self, item: Item, amount: int) -> Optional[InventoryItem]:
         existing_item = session.query(InventoryItem).filter_by(item=item).all()
@@ -454,6 +476,18 @@ class InventoryItemInterface:
             return item
         
         return None
+
+    def search_item(self, query: str) -> list[InventoryItem]:
+
+        threshold = 80
+
+        best_matches = [s for s in self.items if fuzz.ratio(query, s.item.name) >= threshold]
+
+        for s in self.items:
+            if s.item.name.lower().startswith(query.lower()):
+                best_matches.append(s)
+
+        return best_matches
 
 class MenuResourceInterface:
 
@@ -753,6 +787,11 @@ class DatabaseAPI:
             return False
         return self.__user_int__.change_password(target, old_password, new_password)
     
+    def delete_user_by_id(self, target: int, user_password: str) -> Optional[User]:
+        if not self.__valid_call__("admin", "root"):
+            return None
+        return self.__user_int__.delete_user_by_id(target, user_password)
+    
     def delete_user(self, target: User, user_password: str) -> Optional[User]:
         if not self.__valid_call__("admin", "root"):
             return None
@@ -765,6 +804,11 @@ class DatabaseAPI:
             return None
         return self.__inventory_item_int__.get_items()
     
+    def add_new_inventory_item(self, name: str, value: int, uom: str, amount: int) -> Optional[InventoryItem]:
+        if not self.__valid_call__("admin", "employee", "root"):
+            return None
+        return self.__inventory_item_int__.add_new_item(name, value, uom, amount)
+
     def add_inventory_item(self, item: Item, amount: int) -> Optional[InventoryItem]:
         if not self.__valid_call__("admin", "employee", "root"):
             return None
@@ -784,6 +828,11 @@ class DatabaseAPI:
         if not self.__valid_call__("admin", "employee", "root"):
             return None
         return self.__inventory_item_int__.delete_item(item)
+    
+    def search_inventory_item(self, query: str) -> Optional[list[InventoryItem]]:
+        if not self.__valid_call__("admin", "employee", "root"):
+            return None
+        return self.__inventory_item_int__.search_item(query)
     
     # --- Menu Resource API --- #
 
