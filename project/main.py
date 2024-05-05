@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, TIMESTAMP, String, Integer, ForeignKey, Column, Table
+from sqlalchemy import create_engine, TIMESTAMP, String, Integer, ForeignKey, Column, Table, Float
 from sqlalchemy.orm import relationship, Session, DeclarativeBase, Mapped, mapped_column
 from dotenv import dotenv_values
 from enum import Enum
@@ -216,18 +216,18 @@ class ItemInterface:
         existing_item = session.query(Item).filter_by(name=name).all()
 
         if existing_item:
-            return None
-        
+            return existing_item[0]
+
         item = Item(name, value, uom)
 
         if self.__db_int__.add(item):
             self.update_items()
             return item
-    
+
         return None
 
 
-    def edit_item(self, item: Item, name: Optional[str] = None, value: Optional[int] = None, uom: Optional[str] = None) -> bool:
+    def edit_item(self, item: Item, name: Optional[str] = None, value: Optional[float] = None, uom: Optional[str] = None) -> bool:
 
         if name is None and value is None and uom is None:
             return False
@@ -266,6 +266,9 @@ class ItemInterface:
                 best_matches.append(s)
 
         return list(set(best_matches))
+
+    def get_item_by_id(self, item_id: int) -> Optional[Item]:
+        return session.query(Item).filter_by(id=item_id).first()
 
 
 class UserInterface:
@@ -582,7 +585,7 @@ class MenuItemInterface:
         
         return None
 
-    def edit_item(self, item: MenuItem, name: Optional[str] = None, cost: Optional[int] = None, items: Optional[list[MenuResource]] = None) -> Optional[MenuItem]:
+    def edit_item(self, item: MenuItem, name: Optional[str] = None, cost: Optional[float] = None, items: Optional[list[MenuResource]] = None) -> Optional[MenuItem]:
 
         if name is None and cost is None and (items is None or len(items) != 0):
             return None
@@ -619,7 +622,9 @@ class MenuItemInterface:
                 best_matches.append(s)
 
         return list(set(best_matches))
-        
+
+    def get_item_by_id(self, item_id: int) -> Optional[MenuItem]:
+        return session.query(MenuItem).filter_by(id=item_id).first()
 
 class OrderInterface:
     
@@ -760,6 +765,11 @@ class DatabaseAPI:
             return None
         return self.__item_int__.search_item(query)
     
+    def get_item(self, item_id: int) -> Optional[Item]:
+        if not self.__valid_call__("admin", "employee", "root"):
+            return None
+        return self.__item_int__.get_item_by_id(item_id)
+    
     # --- User API --- #
 
     def get_users(self) -> Optional[list[User]]:
@@ -888,6 +898,11 @@ class DatabaseAPI:
         if not self.__valid_call__("admin", "employee", "root"):
             return None
         return self.__menu_item_int__.delete_item(item)
+    
+    def get_menu_item(self, item_id: int) -> Optional[MenuItem]:
+        if not self.__valid_call__("admin", "employee", "root"):
+            return None
+        return self.__menu_item_int__.get_item_by_id(item_id)
     
     # --- Order API --- #
 
