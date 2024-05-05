@@ -503,7 +503,7 @@ class DynamicPopup(customtkinter.CTkToplevel):
 
         self.app: App = parent
         self.title(title)
-        self.cancelled = False
+        self.cancelled = True
         self.input_values = []
         self.items = []
         self.ui_items = []
@@ -596,12 +596,12 @@ class DynamicPopup(customtkinter.CTkToplevel):
     def get_input_values(self, sequence=None):
         self.input_values = [entry.get() for entry in self.input_entries]
         # TODO: call backend
+        self.cancelled = False
         self.destroy()
         self.app.focus()
 
     def close(self):
         self.destroy()
-        self.cancelled = True
         self.app.focus()
 
 
