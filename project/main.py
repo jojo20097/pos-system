@@ -1,11 +1,9 @@
-from sqlalchemy import create_engine, TIMESTAMP, String, Integer, ForeignKey, Column, Table, Float
+from sqlalchemy import create_engine, ForeignKey
 from sqlalchemy.orm import relationship, Session, DeclarativeBase, Mapped, mapped_column
+from typing import Optional, Union
 from dotenv import dotenv_values
-from enum import Enum
 from fuzzywuzzy import fuzz
 import datetime
-from sqlalchemy.exc import IntegrityError
-from typing import Optional, Union
 import hashlib
 
 # config = dotenv_values(".env")
@@ -22,47 +20,63 @@ class Base(DeclarativeBase):
     pass
 
 
-class MenuItemOrder(Base):
-    __tablename__ = "menu_items_order"
+#       --- many to many table for: ---
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    menu_item_id = Column("menu_item_id", Integer, ForeignKey("menu_items.id"))
-    order_id = Column("order_id", Integer, ForeignKey("orders.id"))
-    quantity = Column(Integer)
+#     OrderItem("MenuItem", "amount")
+#     Order(cost, list["OrderItem"])
+
+class OrdersToOrderItems(Base):
+    __tablename__ = "orders_order_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    order_item_id: Mapped[int] = mapped_column(ForeignKey("order_items.id"))
+    order_id: Mapped[int] = mapped_column(ForeignKey("orders.id"))
  
 
-class ItemMenu(Base):
-    __tablename__ = "items_menu"
+#       --- many to many table for: ---
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    menu_resources_id = Column("menu_resources_id", Integer, ForeignKey("menu_resources.id"))
-    menu_id = Column("menu_id", Integer, ForeignKey("menu_items.id"))
+#     MenuResource("Item", "amount")
+#     MenuItem(cost, list["MenuResource"])
+
+class ResourcesToItems(Base):
+    __tablename__ = "resources_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    menu_resource_id: Mapped[int] = mapped_column(ForeignKey("menu_resources.id"))
+    menu_id: Mapped[int] = mapped_column(ForeignKey("menu_items.id"))
 
 
 class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    password: Mapped[str] = mapped_column(String)
-    permissions: Mapped[str] = mapped_column(String)
+    
+    username: Mapped[str] = mapped_column(unique=True)
+    password: Mapped[str] = mapped_column()
+    permissions: Mapped[str] = mapped_column()
 
-    def __init__(self, password: str, permissions: str) -> None:
+    def __init__(self, username: str, password: str, permissions: str) -> None:
+        self.username = username
         self.password = password
         self.permissions = permissions
 
     def __repr__(self) -> str:
-        return f"User: ({self.id})"
+        return f"({self.id}) {self.username} ({self.permissions})"
 
 
 class Item(Base):
     __tablename__ = "items"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String)
-    value_per_uom: Mapped[int] = mapped_column(Integer)
-    uom: Mapped[str] = mapped_column(String)
+
+    name: Mapped[str] = mapped_column(unique=True)
+    value_per_uom: Mapped[int] = mapped_column()
+    uom: Mapped[str] = mapped_column()
+
     inventory_item: Mapped["InventoryItem"] = relationship(back_populates="item", uselist=False, cascade="all")
-    menu_resources: Mapped[list["MenuResource"]] = relationship("MenuResource", cascade="all")
+    menu_resources: Mapped[list["MenuResource"]] = relationship(cascade="all")
 
     def __init__(self, name: str, value_per_uom: int, uom: str) -> None:
         self.name = name
@@ -70,79 +84,102 @@ class Item(Base):
         self.uom = uom
 
     def __repr__(self) -> str:
-        return f"{self.name}"
+        return f"({self.id}) {self.name}"
+
 
 class InventoryItem(Base):
     __tablename__ = "inventory_items"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    amount: Mapped[int] = mapped_column(Integer)
-    item_id: Mapped[int] = mapped_column(Integer, ForeignKey("items.id"))
-    item: Mapped["Item"] = relationship(back_populates="inventory_item")
 
-    def __init__(self, amount: int, item: Item) -> None:
-        self.amount = amount
+    item: Mapped["Item"] = relationship(back_populates="inventory_item")
+    amount: Mapped[int] = mapped_column()
+
+    item_id: Mapped[int] = mapped_column(ForeignKey("items.id"))
+
+    def __init__(self, item: "Item", amount: int) -> None:
         self.item = item
+        self.amount = amount
 
     def __repr__(self) -> str:
-        return f"{self.item.name} {self.amount}"
+        return f"({self.id}) {self.item} {self.amount}"
+
 
 class MenuResource(Base):
     __tablename__ = "menu_resources"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    amount: Mapped[int] = mapped_column(Integer)
-    item_id: Mapped[int] = mapped_column(Integer, ForeignKey("items.id"))
-    item: Mapped["Item"] = relationship(back_populates="menu_resources")
-    
-    menu_items: Mapped[list["MenuItem"]] = relationship(secondary="items_menu", back_populates="items")
 
-    def __init__(self, amount: int, item: Item) -> None:
-        self.amount = amount
+    item: Mapped["Item"] = relationship(back_populates="menu_resources")
+    amount: Mapped[int] = mapped_column()
+
+    item_id: Mapped[int] = mapped_column(ForeignKey("items.id"))
+    menu_items: Mapped[list["MenuItem"]] = relationship(secondary="resources_items", back_populates="resources")
+
+    def __init__(self, item: "Item", amount: int) -> None:
         self.item = item
+        self.amount = amount
 
     def __repr__(self) -> str:
-        return f"{self.item.name} {self.amount}"
+        return f"({self.id}) {self.item} {self.amount}"
 
 
 class MenuItem(Base):
     __tablename__ = "menu_items"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String)
-    cost: Mapped[int] = mapped_column(Integer)
-    
-    items: Mapped[list["MenuResource"]] = relationship(secondary="items_menu", back_populates="menu_items")
-    order_items: Mapped[list["Order"]] = relationship(secondary="menu_items_order", back_populates="items")
 
-    def __init__(self, name: str, cost: int, items: list[MenuResource]) -> None:
+    name: Mapped[str] = mapped_column(unique=True)
+    cost: Mapped[int] = mapped_column()
+    resources: Mapped[list["MenuResource"]] = relationship(secondary="resources_items", back_populates="menu_items")
+
+    order_items: Mapped[list["OrderItem"]] = relationship("OrderItem", cascade="all")
+
+    def __init__(self, name: str, cost: int, items: list["MenuResource"]) -> None:
         self.name = name
         self.cost = cost
         self.items = items
 
     def __repr__(self) -> str:
-        return f"{self.name} {self.cost} {self.items}"
+        return f"({self.id}) {self.name} {self.cost} {self.items}"
+
+
+class OrderItem(Base):
+    __tablename__ = "order_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    item: Mapped["MenuItem"] = relationship(back_populates="order_items")
+    amount: Mapped[int] = mapped_column()
+
+    item_id: Mapped[int] = mapped_column(ForeignKey("menu_items.id"))
+    orders: Mapped[list["Order"]] = relationship(secondary="orders_order_items", back_populates="items")
+
+    def __init__(self, item: "MenuItem", amount: int) -> None:
+        self.item = item
+        self.amount = amount
+
+    def __repr__(self) -> str:
+        return f"({self.id}) {self.item} {self.amount}"
 
 
 class Order(Base):
     __tablename__ = "orders"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    value: Mapped[int] = mapped_column(Integer)
-    date: Mapped[TIMESTAMP] = mapped_column(TIMESTAMP, default=datetime.datetime.now())
-    
-    items: Mapped[list["MenuItem"]] = relationship(secondary="menu_items_order", back_populates="order_items")
+    date: Mapped[datetime.datetime] = mapped_column(default=datetime.datetime.now())
 
-    def __init__(self, value: int, items: list[MenuItem]) -> None:
+    value: Mapped[int] = mapped_column()
+    items: Mapped[list["OrderItem"]] = relationship(secondary="orders_order_items", back_populates="orders")
+
+    def __init__(self, value: int, items: list["OrderItem"]) -> None:
         self.value = value
         self.items = items
 
     def __repr__(self) -> str:
         return f"({self.id}) {self.value} {self.items}"
- 
 
 Base.metadata.create_all(engine)
-
 
 class DatabaseInterface:
 
@@ -150,302 +187,334 @@ class DatabaseInterface:
     __EDIT__ = 2
     __DELETE__ = 3
 
-    def handle(self, object:Optional[Union[Item, User, InventoryItem, MenuResource, MenuItem, Order]], type: int) -> bool:
+    def handle(self, object: Optional[Union["Item", "User", "InventoryItem", "MenuResource", "OrderItem", "MenuItem", "Order"]], type: int) -> bool:
+
         try:
             if type == self.__ADD__:
                 session.add(object)
-                session.commit()
-            elif type == self.__EDIT__:
-                session.commit()
             elif type == self.__DELETE__:
                 session.delete(object)
-                session.commit()
+            session.commit()
 
-        except (IntegrityError) as e:
-            session.rollback()
-            print(e)
-            return False
-        
         except Exception as e:
             session.rollback()
-            print(e)
             return False
         
         return True
     
-    def add(self, object: Optional[Union[Item, User, InventoryItem, MenuResource, MenuItem, Order]]) -> bool:
+    def add(self, object: Optional[Union["Item", "User", "InventoryItem", "MenuResource", "OrderItem", "MenuItem", "Order"]]) -> bool:
 
         if not self.handle(object, self.__ADD__):
             return False
-        
+
         return True
     
-    def edit(self, object: Optional[Union[Item, User, InventoryItem, MenuResource, MenuItem, Order]]) -> bool:
+    def edit(self, object: Optional[Union["Item", "User", "InventoryItem", "MenuResource", "OrderItem", "MenuItem", "Order"]]) -> bool:
 
         if not self.handle(object, self.__EDIT__):
             return False
 
         return True
-    
-    def delete(self, object: Optional[Union[Item, User, InventoryItem, MenuResource, MenuItem, Order]]) -> bool:
+
+    def delete(self, object: Optional[Union["Item", "User", "InventoryItem", "MenuResource", "OrderItem", "MenuItem", "Order"]]) -> bool:
 
         if not self.handle(object, self.__DELETE__):
             return False
-    
+
         return True
-
-
-
-class ItemInterface:
-
-    items: list[Item]
-    __db_int__: DatabaseInterface = DatabaseInterface()
-
-    def __init__(self) -> None:
-        self.update_items()
-
-    def update_items(self) -> None:
-        self.items = self.get_items()
-
-    def get_items(self) -> list[Item]:
-        return session.query(Item).all()
-
-
-    def add_item(self, name: str, value: int, uom: str) -> Optional[Item]:
-
-        existing_item = session.query(Item).filter_by(name=name).all()
-
-        if existing_item:
-            return existing_item[0]
-
-        item = Item(name, value, uom)
-
-        if self.__db_int__.add(item):
-            self.update_items()
-            return item
-
-        return None
-
-
-    def edit_item(self, item: Item, name: Optional[str] = None, value: Optional[float] = None, uom: Optional[str] = None) -> bool:
-
-        if name is None and value is None and uom is None:
-            return False
-
-        if name is not None:
-            item.name = name
-        if value is not None:
-            item.value_per_uom = value
-        if uom is not None:
-            item.uom = uom
-        
-        if self.__db_int__.edit(item):
-            self.update_items()
-            return True
-
-        return False
-
-
-    def delete_item(self, item: Item) -> bool:
-        
-        if self.__db_int__.delete(item):
-            self.update_items()
-            return True
-
-        return False
-
-
-    def search_item(self, query: str) -> list[Item]:
-
-        threshold = 80
-
-        best_matches = [s for s in self.items if fuzz.ratio(query, s.name) >= threshold]
-
-        for s in self.items:
-            if s.name.lower().startswith(query.lower()):
-                best_matches.append(s)
-
-        return list(set(best_matches))
-
-    def get_item_by_id(self, item_id: int) -> Optional[Item]:
-        return session.query(Item).filter_by(id=item_id).first()
 
 
 class UserInterface:
 
-    user: Optional[User]
-    users: list[User]
     __db_int__: DatabaseInterface = DatabaseInterface()
 
-    def __init__(self) -> None:
-        self.update_users()
+    user: Optional["User"] = None
+    users: list["User"]
 
-    def update_users(self) -> None:
+    def __init__(self) -> None:
+        self.__update_users__()
+
+    def __update_users__(self) -> None:
         self.users = self.get_users()
 
-    def get_users(self) -> list[User]:
-        return session.query(User).all()
-
     def __make_hash__(self, plaintext: str) -> str:
-        data = plaintext.encode()
 
         hasher = hashlib.sha256()
-        hasher.update(data)
-        hashed_data = hasher.digest()
-        hex_digest = hashed_data.hex()
+        hasher.update(plaintext.encode())
+        hashed_password = hasher.digest().hex()
 
-        return hex_digest
+        return hashed_password
+    
+    def __verify_password__(self, user: "User", password: str) -> bool:
 
-    def verify_password(self, user: User, password: str) -> bool:
-        
-        hash = user.password
-        hex_digest = self.__make_hash__(password)
+        hash = self.__make_hash__(password)
 
-        if hash != hex_digest:
-            print("Invalid password !")
-            return False
-
-        return True
-
-    def login(self, user_id: int, password: str) -> bool:
-        
-        user = session.query(User).filter_by(id=user_id).all()
-        if not user:
-            return False
-        if self.verify_password(user[0], password):
-            self.user = user[0]
+        if user.password == hash:
             return True
-        
+
         return False
+
+    def get_users(self) -> list["User"]:
+        return session.query(User).all()
     
-    def logout(self) -> None:
+    def get_user_by_id(self, id: int) -> Optional["User"]:
+        return session.query(User).filter_by(id=id).first()
+
+    def get_user_by_username(self, username: str) -> Optional["User"]:
+        return session.query(User).filter_by(username=username).first()
+
+
+    def login(self, username: str, password: str) -> Optional["User"]:
+
+        user = self.get_user_by_username(username)
+        
+        if user is None:
+            return None
+
+        if not self.__verify_password__(user, password):
+            return None
+
+        self.user = user
+
+        return user
+    
+    def logout(self) -> Optional["User"]:
+        
+        if self.user is None:
+            return None
+
+        user = self.user
         self.user = None
+
+        return user
     
-    def create_user(self, cur_user_password: str, new_user_password: str, permissions: str) -> Optional[User]:
+    def create_root(self, username: str, password: str) -> Optional["User"]:
+
+        hashed_password = self.__make_hash__(password)
+        root_user = User(username, hashed_password, "root")
+
+        if not self.__db_int__.add(root_user):
+            return None
+
+        self.__update_users__()
+
+        return root_user
+    
+    def create_user(self, username: str, current_user_password: str, new_user_password: str, permissions: str) -> Optional["User"]:
 
         if self.user is None:
             return None
 
-        if self.user.permissions != "admin" and self.user.permissions != "root":
-            print("Weak user permissions !")
+        if not self.__verify_password__(self.user, current_user_password):
             return None
-        
+
+        if self.user.permissions not in ["admin", "root"]:
+            return None
+
         if permissions not in ["admin", "employee"]:
-            print("Invalid supplied permissions !")
-            return None
-        
-        if not self.verify_password(self.user, cur_user_password):
             return None
    
         hashed_password = self.__make_hash__(new_user_password)
-        user = User(hashed_password, permissions)
+        new_user = User(username, hashed_password, permissions)
 
-        if not self.__db_int__.add(user):
+        if not self.__db_int__.add(new_user):
             return None
 
-        self.update_users()
-        return user
-    
-    def create_root(self, root_password: str) -> Optional[User]:
+        self.__update_users__()
 
-        hashed_password = self.__make_hash__(root_password)
+        return new_user
 
-        root = User(hashed_password, "root")
-
-        if not self.__db_int__.add(root):
-            return None
-        
-        return root
-
-    def change_password(self, target: User, old_password: str, new_password: str) -> bool:
-
-        if self.user != target:
-            return False
-        
-        if not self.verify_password(self.user, old_password):
-            return False
-        
-        hashed_password = self.__make_hash__(new_password)
-        target.password = hashed_password
-
-        if not self.__db_int__.edit(target):
-            return False
-        
-        self.update_users()
-        return True
-    
-    def delete_user(self, target: User, user_password: str) -> Optional[User]:
+    def change_username(self, new_username: str, password: str) -> Optional["User"]:
 
         if self.user is None:
+            return None
+
+        if not self.__verify_password__(self.user, password):
+            return None
+        
+        self.user.username = new_username
+
+        if not self.__db_int__.edit(self.user):
+            return None
+        
+        self.__update_users__()
+
+        return self.user
+
+
+    def change_password(self, old_password: str, new_password: str) -> Optional["User"]:
+
+        if self.user is None:
+            return None
+
+        if not self.__verify_password__(self.user, old_password):
+            return None
+
+        hashed_password = self.__make_hash__(new_password)
+        self.user.password = hashed_password
+
+        if not self.__db_int__.edit(self.user):
+            return None
+        
+        self.__update_users__()
+
+        return self.user
+    
+    def delete_user(self, target: User, user_password: str) -> Optional["User"]:
+
+        if self.user is None:
+            return None
+
+        if not self.__verify_password__(self.user, user_password):
             return None
 
         if self.user == target:
             return None
         
-        if not self.verify_password(self.user, user_password):
-            return None
-        
         if not self.__db_int__.delete(target):
             return None
 
-        self.update_users()
-        return target
-    
-    def delete_user_by_id(self, target: int, user_password: str) -> Optional[User]:
+        self.__update_users__()
 
-        user = session.query(User).filter(User.id == target).first()
-        
-        if user is None:
+        return target
+
+
+class ItemInterface:
+
+    __db_int__: DatabaseInterface = DatabaseInterface()
+
+    items: list["Item"]
+
+    def __init__(self) -> None:
+        self.__update_items__()
+
+    def __update_items__(self) -> None:
+        self.items = self.get_items()
+
+    def get_items(self) -> list["Item"]:
+        return session.query(Item).all()
+    
+    def get_item_by_id(self, id: int) -> Optional["Item"]:
+        return session.query(Item).filter_by(id=id).first()
+    
+    def get_item_by_name(self, name: str) -> Optional["Item"]:
+        return session.query(Item).filter_by(name=name).first()
+    
+    def search_item(self, query: str) -> list["Item"]:
+
+        items = []
+        threshold = 80
+
+        for item in self.items:
+            if fuzz.ration(query, item.name) >= threshold:
+                items.append(item)
+            elif item.name.lower().startswith(query.lower()):
+                items.append(item)
+
+        return items
+
+    def add_item(self, name: str, value: int, uom: str) -> Optional["Item"]:
+
+        item = Item(name, value, uom)
+
+        if not self.__db_int__.add(item):
             return None
 
-        return self.delete_user(user, user_password)
+        self.__update_items__()
+
+        return item
+    
+    def edit_item_name(self, item: "Item", new_name: str) -> Optional["Item"]:
+
+        item.name = new_name
+
+        if not self.__db_int__.edit(item):
+            return None
+        
+        self.__update_items__()
+
+        return item
+
+    def edit_item_value(self, item: "Item", new_value: int) -> Optional["Item"]:
+
+        item.value_per_uom = new_value
+
+        if not self.__db_int__.edit(item):
+            return None
+        
+        self.__update_items__()
+
+        return item
+
+    def edit_item_uom(self, item: "Item", new_uom: str) -> Optional["Item"]:
+
+        item.uom = new_uom
+
+        if not self.__db_int__.edit(item):
+            return None
+        
+        self.__update_items__()
+
+        return item
+
+    def delete_item(self, item: "Item") -> Optional["Item"]:
+        
+        if not self.__db_int__.delete(item):
+            return None
+
+        self.__update_items__()
+
+        return item
 
     
 class InventoryItemInterface:
 
-    items: list[InventoryItem]
     __db_int__: DatabaseInterface = DatabaseInterface()
 
-    def __init__(self) -> None:
-        self.update_items()
+    items: list["InventoryItem"]
 
-    def update_items(self) -> None:
+    def __init__(self) -> None:
+        self.__update_items__()
+
+    def __update_items__(self) -> None:
         self.items = self.get_items()
 
-    def get_items(self) -> list[InventoryItem]:
+    def __edit_amount__(self, item: "InventoryItem", amount: int) -> Optional["InventoryItem"]:
+
+        item.amount = amount
+
+        if self.__db_int__.edit(item):
+            return None
+
+        self.__update_items__()
+
+        return item
+
+    def get_items(self) -> list["InventoryItem"]:
         return session.query(InventoryItem).all()
     
-    def add_new_item(self, name: str, value: int, uom: str, amount: int) -> Optional[InventoryItem]:
+    def get_item_by_id(self, id: int) -> Optional["InventoryItem"]:
+        return session.query(InventoryItem).filter_by(id=id).first()
 
-        existing_item = session.query(Item).filter_by(name=name).all()
+    def add_item(self, item: "Item", amount: int) -> Optional["InventoryItem"]:
+        
+        inventory_item = InventoryItem(item, amount)
 
-        if existing_item:
+        if not self.__db_int__.add(inventory_item):
             return None
         
-        item = Item(name, value, uom)
+        self.__update_items__()
 
-        if self.__db_int__.add(item):
-            self.update_items()
-            return self.add_item(item, amount)
-        
-        return None
-
+        return inventory_item
     
-    def add_item(self, item: Item, amount: int) -> Optional[InventoryItem]:
-        existing_item = session.query(InventoryItem).filter_by(item=item).all()
+    def add_amount(self, item: "InventoryItem", amount: int) -> Optional["InventoryItem"]:
 
-        if existing_item:
+        if amount < 0:
             return None
         
-        inv_item = InventoryItem(amount, item)
-
-        if self.__db_int__.add(inv_item):
-            self.update_items()
-            return inv_item
-        
-        return None
+        return self.__edit_amount__(item, item.amount + amount)
     
-    def sub_amount(self, item: InventoryItem, amount: int) -> Optional[InventoryItem]:
+    def sub_amount(self, item: "InventoryItem", amount: int) -> Optional["InventoryItem"]:
 
         if amount < 0:
             return None
@@ -453,529 +522,775 @@ class InventoryItemInterface:
         if amount > item.amount:
             return None
 
-        return self.edit_amount(item, item.amount - amount)
+        return self.__edit_amount__(item, item.amount - amount)
 
-    def add_amount(self, item: InventoryItem, amount: int) -> Optional[InventoryItem]:
-
-        if amount < 0:
-            return None
-        
-        return self.edit_amount(item, item.amount + amount)
-
-
-    def edit_amount(self, item: InventoryItem, amount: int) -> Optional[InventoryItem]:
-        item.amount = amount
-
-        if self.__db_int__.edit(item):
-            self.update_items()
-            return item
-
-        return None
-
-    def delete_item(self, item: InventoryItem) -> Optional[InventoryItem]:
+    def delete_item(self, item: "InventoryItem") -> Optional["InventoryItem"]:
 
         if self.__db_int__.delete(item):
-            self.update_items()
-            return item
+            return None
         
-        return None
+        self.__update_items__()
 
-    def search_item(self, query: str) -> list[InventoryItem]:
-
-        threshold = 80
-
-        best_matches = [s for s in self.items if fuzz.ratio(query, s.item.name) >= threshold]
-
-        for s in self.items:
-            if s.item.name.lower().startswith(query.lower()):
-                best_matches.append(s)
-
-        return list(set(best_matches))
+        return item
 
 
 class MenuResourceInterface:
 
-    items: list[MenuResource]
     __db_int__: DatabaseInterface = DatabaseInterface()
 
+    resources: list["MenuResource"]
+
     def __init__(self) -> None:
-        self.update_items()
+        self.__update_resources__()
 
-    def update_items(self) -> None:
-        self.items = self.get_items()
+    def __update_resources__(self) -> None:
+        self.resources = self.get_resources()
 
-    def get_items(self) -> list[MenuResource]:
+    def get_resources(self) -> list["MenuResource"]:
         return session.query(MenuResource).all()
     
-    def add_item(self, item: Item, amount: int) -> Optional[MenuResource]:
+    def get_resource_by_id(self, id: int) -> Optional["MenuResource"]:
+        return session.query(MenuResource).filter_by(id=id).first()
 
-        menu_res = MenuResource(amount, item)
+    def add_item(self, item: "Item", amount: int) -> Optional["MenuResource"]:
 
-        if self.__db_int__.add(menu_res):
-            self.update_items()
-            return menu_res
+        menu_resource = MenuResource(item, amount)
 
-        return None
-
-    def edit_amount(self, item: MenuResource, amount: int) -> Optional[MenuResource]:
-
-        if amount <= 0:
+        if not self.__db_int__.add(menu_resource):
             return None
-
-        item.amount = amount
-
-        if self.__db_int__.edit(item):
-            self.update_items()
-            return item
-
-        return None
-
-    def delete_item(self, item: MenuResource) -> Optional[MenuResource]:
-
-        if self.__db_int__.delete(item):
-            self.update_items()
-            return item
         
-        return None
+        self.__update_resources__()
+
+        return menu_resource
+
+    def delete_item(self, item: "MenuResource") -> Optional["MenuResource"]:
+
+        if not self.__db_int__.delete(item):
+            return None
         
+        self.__update_resources__()
+        
+        return item
+    
 
 class MenuItemInterface:
 
-    items: list[MenuItem]
     __db_int__: DatabaseInterface = DatabaseInterface()
 
-    def __init__(self) -> None:
-        self.update_items()
+    items: list["MenuItem"]
 
-    def update_items(self) -> None:
+    def __init__(self) -> None:
+        self.__update_items__()
+
+    def __update_items__(self) -> None:
         self.items = self.get_items()
 
-    def get_items(self) -> list[MenuItem]:
-        return session.query(MenuItem).all()
-    
-    def get_available_items(self) -> list[MenuItem]:
+    def __is_available__(self, item: "MenuItem") -> bool:
 
-        result = []
-        all_menu_items = session.query(MenuItem).all()
-
-        for item in all_menu_items:
-            if self.is_available(item):
-                result.append(item)
-            
-        return result
-    
-    def is_available(self, item: MenuItem) -> bool:
         for resource in item.items:
             if resource.item.inventory_item.amount < resource.amount:
                 return False
+
         return True
+
+    def get_items(self) -> list["MenuItem"]:
+        return session.query(MenuItem).all()
     
-    def add_item(self, name: str, cost: int, items: list[MenuResource]) -> Optional[MenuItem]:
+    def get_item_by_id(self, id: int) -> Optional["MenuItem"]:
+        return session.query(MenuItem).filter_by(id=id).first()
+    
+    def get_item_by_name(self, name: str) -> Optional["MenuItem"]:
+        return session.query(MenuItem).filter_by(name=name).first()
+    
+    def search_item(self, query: str) -> list["MenuItem"]:
 
-        existing_item = session.query(MenuItem).filter_by(name=name).all()
+        items = []
+        threshold = 80
 
-        if existing_item:
-            return None
+        for item in self.items:
+            if fuzz.ration(query, item.name) >= threshold:
+                items.append(item)
+            elif item.name.lower().startswith(query.lower()):
+                items.append(item)
+
+        return items
+    
+    def get_available_items(self) -> list["MenuItem"]:
+
+        available = []
+        all_menu_items = session.query(MenuItem).all()
+
+        for item in all_menu_items:
+            if self.__is_available__(item):
+                available.append(item)
+            
+        return available
+    
+    def add_item(self, name: str, cost: int, items: list["MenuResource"]) -> Optional["MenuItem"]:
         
         item = MenuItem(name, cost, items)
 
-        if self.__db_int__.add(item):
-            self.update_items()
-            return item
+        if not self.__db_int__.add(item):
+            return None
+
+        self.__update_items__()
+
+        return item
+    
+    def edit_name(self, item: "MenuItem", name: str) -> Optional["MenuItem"]:
+
+        item.name = name
         
-        return None
-
-    def edit_item(self, item: MenuItem, name: Optional[str] = None, cost: Optional[float] = None, items: Optional[list[MenuResource]] = None) -> Optional[MenuItem]:
-
-        if name is None and cost is None and (items is None or len(items) != 0):
+        if not self.__db_int__.edit(item):
             return None
         
-        if name is not None:
-            item.name = name
-        if cost is not None:
-            item.cost = cost
-        if items is not None:
-            item.items = items
+        self.__update_items__()
 
-        if self.__db_int__.edit(item):
-            self.update_items()
-            return item
+        return item
 
-        return None
+    def edit_cost(self, item: "MenuItem", cost: int) -> Optional["MenuItem"]:
 
-    def delete_item(self, item: MenuItem) -> Optional[MenuItem]:
-
-        if self.__db_int__.delete(item):
-            self.update_items()
-            return item
+        item.cost = cost
         
-        return None
+        if not self.__db_int__.edit(item):
+            return None
+        
+        self.__update_items__()
+
+        return item
+
+    def edit_resources(self, item: "MenuItem", resources: list["MenuResource"]) -> Optional["MenuItem"]:
+
+        if len(resources) == 0:
+            return None
+        
+        item.resources = resources
+        
+        if not self.__db_int__.edit(item):
+            return None
+        
+        self.__update_items__()
+
+        return item
+
+    def delete_item(self, item: "MenuItem") -> Optional["MenuItem"]:
+
+        if not self.__db_int__.delete(item):
+            return None
+        
+        self.__update_items__()
+
+        return item
     
-    def search_item(self, query: str) -> list[MenuItem]:
 
-        threshold = 80
+class OrderItemInterface:
 
-        best_matches = [s for s in self.items if fuzz.ratio(query, s.name) >= threshold]
+    __db_int__: DatabaseInterface = DatabaseInterface()
 
-        for s in self.items:
-            if s.name.lower().startswith(query.lower()):
-                best_matches.append(s)
+    items: list["OrderItem"]
 
-        return list(set(best_matches))
+    def __init__(self) -> None:
+        self.__update_items__()
 
-    def get_item_by_id(self, item_id: int) -> Optional[MenuItem]:
-        return session.query(MenuItem).filter_by(id=item_id).first()
+    def __update_items__(self) -> None:
+        self.items = self.get_items()
+
+    def get_items(self) -> list["OrderItem"]:
+        return session.query(OrderItem).all()
+    
+    def get_item_by_id(self, id: int) -> Optional["OrderItem"]:
+        return session.query(OrderItem).filter_by(id=id).first()
+    
+    def add_item(self, item: "MenuItem", amount: int) -> Optional["OrderItem"]:
+
+        order_item = OrderItem(item, amount)
+
+        if not self.__db_int__.add(order_item):
+            return None
+        
+        self.__update_items__()
+        
+        return order_item
+    
+    def delete_item(self, item: "OrderItem") -> Optional["OrderItem"]:
+
+        if not self.__db_int__.delete(item):
+            return None
+        
+        self.__update_items__()
+
+        return item
+
 
 class OrderInterface:
     
-    orders: list[Order]
     __db_int__: DatabaseInterface = DatabaseInterface()
 
-    def __init__(self) -> None:
-        self.update_orders()
+    orders: list["Order"]
 
-    def update_orders(self) -> None:
+    def __init__(self) -> None:
+        self.__update_orders__()
+
+    def __update_orders__(self) -> None:
         self.orders = self.get_orders()
 
-    def get_orders(self) -> list[Order]:
+    def __sub_order_resources__(self, items: list["OrderItem"]) -> bool:
+
+        for item in items:
+            for resource in item.item.resources:
+                resource.item.inventory_item.amount -= resource.amount
+
+        if not self.__db_int__.edit(None):
+            return False
+
+        self.__update_orders__()
+        
+        return True
+    
+    def __add_order_resources__(self, items: list["OrderItem"]) -> bool:
+        
+        for item in items:
+            for resource in item.item.resources:
+                resource.item.inventory_item.amount += resource.amount
+
+        if not self.__db_int__.edit(None):
+            return False
+
+        self.__update_orders__()
+        
+        return True
+    
+    def __calc_order_value__(self, items: list["OrderItem"]) -> int:
+        
+        value = 0
+        
+        for item in items:
+            value += item.amount * item.item.cost
+
+        return value
+
+
+    def get_orders(self) -> list["Order"]:
         return session.query(Order).all()
     
-    def can_create_order(self, items: list[MenuItem]) -> bool:
-        for item in items:
-            for resource in item.items:
-                if resource.amount > resource.item.inventory_item.amount:
-                    return False
-        return True
+    def get_order_by_id(self, id: int) -> Optional["Order"]:
+        return session.query(Order).filter_by(id=id).first()
     
-    def sub_menu_resources(self, items: list[MenuItem]) -> bool:
-        for item in items:
-            for resource in item.items:
-                resource.item.inventory_item.amount -= resource.amount
-        
-        if not self.__db_int__.edit(None):
-            return False
-        
-        return True
-    
-    def add_menu_resources(self, items: list[MenuItem]) -> bool:
-        for item in items:
-                for resource in item.items:
-                    resource.item.inventory_item.amount -= resource.amount
-            
-        if not self.__db_int__.edit(None):
-            return False
-            
-        return True
-    
-    def add_order(self, value: int, items: list[MenuItem]) -> Optional[Order]:
+    def add_order(self, items: list["OrderItem"]) -> Optional["Order"]:
 
-        if len(items) == 0:
-            return None
-        
-        if not self.can_create_order(items):
-            return None
-        
-        order = Order(value, items)
-
-        if not self.sub_menu_resources(items):
+        if not self.__sub_order_resources__(items):
             return None
 
-        if self.__db_int__.add(order):
-            self.update_orders()
-            return order
-        
-        return None
-    
-    def edit_order(self, order: Order, value: Optional[int] = None, items: Optional[list[MenuItem]] = None) -> Optional[Order]:
+        order = Order(self.__calc_order_value__(items), items)
 
-        if value is None and (items is None or len(items) != 0):
-            return None
-        
-
-        if items is not None:
-            if not self.add_menu_resources(order.items):
-                return None
-            if not self.sub_menu_resources(items):
-                return None
-            order.items = items
-        if value is not None:
-            order.value = value
-        
-
-        if self.__db_int__.edit(order):
-            self.update_orders()
-            return order
-        
-        return None
-    
-    def delete_order(self, order: Order) -> Optional[Order]:
-
-        if not self.add_menu_resources(order.items):
+        if not self.__db_int__.add(order):
+            self.__add_order_resources__(items)
             return None
 
-        if self.__db_int__.delete(order):
-            self.update_orders()
-            return order
+        self.__update_orders__()
         
-        return None
+        return order
+
+    def edit_order(self, order: "Order", items: list["OrderItem"]) -> Optional["Order"]:
+
+        if not self.__add_order_resources__(order.items):
+            return None
+        
+        if not self.__sub_order_resources__(items):
+            self.__add_order_resources__(order.items)
+            return None
+        
+        order.value = self.__calc_order_value__(items)
+        order.items = items
+
+        if not self.__db_int__.edit(order):
+            return None
+
+        self.__update_orders__()
+
+        return order
+    
+    def delete_order(self, order: "Order") -> Optional["Order"]:
+
+        if not self.__add_order_resources__(order.items):
+            return None
+        
+        if not self.__db_int__.delete(order):
+            return None
+        
+        return order
 
 
 class DatabaseAPI:
 
-    __item_int__: ItemInterface = ItemInterface()
     __user_int__: UserInterface = UserInterface()
+    __item_int__: ItemInterface = ItemInterface()
     __inventory_item_int__: InventoryItemInterface = InventoryItemInterface()
     __menu_resource_int__: MenuResourceInterface = MenuResourceInterface()
     __menu_item_int__: MenuItemInterface = MenuItemInterface()
+    __order_item_int__: OrderItemInterface = OrderItemInterface()
     __order_int__: OrderInterface = OrderInterface()
 
     def __valid_call__(self, *essential_permissions) -> bool:
+
         if self.__user_int__.user is None:
-            print("Needs to login first !")
             return False
+    
         if self.__user_int__.user.permissions not in essential_permissions:
-            print("Too weak permissions !")
             return False
+    
         return True
-
-    # --- Basic Items API --- #
-
-    def get_items(self) -> Optional[list[Item]]:
-        if not self.__valid_call__("admin", "employee", "root"):
-            return None
-        return self.__item_int__.get_items()
-    
-    def add_item(self, name: str, value: int, uom: str) -> Optional[Item]:
-        if not self.__valid_call__("admin", "employee", "root"):
-            return None
-        return self.__item_int__.add_item(name, value, uom)
-    
-    def edit_item(self, item: Item, name: Optional[str] = None, value: Optional[int] = None) -> bool:
-        if not self.__valid_call__("admin", "employee", "root"):
-            return False
-        return self.__item_int__.edit_item(item, name, value)
-    
-    def delete_item(self, item: Item) -> bool:
-        if not self.__valid_call__("admin", "employee", "root"):
-            return False
-        return self.__item_int__.delete_item(item)
-    
-    def search_item(self, query: str) -> Optional[list[Item]]:
-        if not self.__valid_call__("admin", "employee", "root"):
-            return None
-        return self.__item_int__.search_item(query)
-    
-    def get_item(self, item_id: int) -> Optional[Item]:
-        if not self.__valid_call__("admin", "employee", "root"):
-            return None
-        return self.__item_int__.get_item_by_id(item_id)
     
     # --- User API --- #
 
-    def get_users(self) -> Optional[list[User]]:
-        if not self.__valid_call__("admin", "root"):
+    def get_users(self) -> Optional[list["User"]]:
+
+        '''Returns list of all user objects'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
             return None
+
         return self.__user_int__.get_users()
     
-    def login(self, user_id: int, password: str) -> bool:
-        return self.__user_int__.login(user_id, password)
-    
-    def logout(self) -> None:
-        if not self.__valid_call__("admin", "employee", "root"):
-            return None
-        self.__user_int__.logout()
+    def get_user_by_id(self, id: int) -> Optional["User"]:
 
-    def create_user(self, cur_user_password: str, new_user_password: str, permissions: str) -> Optional[User]:
-        if not self.__valid_call__("admin", "root"):
+        '''Returns user object given user id'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
             return None
-        return self.__user_int__.create_user(cur_user_password, new_user_password, permissions)
+        
+        return self.__user_int__.get_user_by_id(id)
     
-    def create_root(self, root_password: str) -> Optional[User]:
-        return self.__user_int__.create_root(root_password)
-    
-    def change_password(self, target: User, old_password: str, new_password: str) -> bool:
-        if not self.__valid_call__("admin", "employee", "root"):
-            return False
-        return self.__user_int__.change_password(target, old_password, new_password)
-    
-    def delete_user_by_id(self, target: int, user_password: str) -> Optional[User]:
-        if not self.__valid_call__("admin", "root"):
+    def get_user_by_username(self, username: str) -> Optional["User"]:
+
+        '''Returns user object given username'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
             return None
-        return self.__user_int__.delete_user_by_id(target, user_password)
+        
+        return self.__user_int__.get_user_by_username(username)
     
-    def delete_user(self, target: User, user_password: str) -> Optional[User]:
-        if not self.__valid_call__("admin", "root"):
+    def login(self, username: str, password: str) -> Optional["User"]:
+        
+        '''Logs in user given username and password'''
+
+        return self.__user_int__.login(username, password)
+    
+    def logout(self) -> Optional["User"]:
+
+        '''Logs out currently logged in user.'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
             return None
+        
+        return self.__user_int__.logout()
+    
+    def create_user(self, username: str, current_user_password: str, new_user_password: str, permissions: str) -> Optional["User"]:
+        
+        '''Creates new user given username, password and permissions.'''
+        
+        if not self.__valid_call__("root", "admin", "employee"):
+            return None
+        
+        return self.__user_int__.create_user(username, current_user_password, new_user_password, permissions)
+    
+    def change_username(self, new_username: str, password: str) -> Optional["User"]:
+
+        '''Changes name of currently logged in user.'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
+            return None
+        
+        return self.__user_int__.change_username(new_username, password)
+    
+    def change_password(self, old_password: str, new_password: str) -> Optional["User"]:
+
+        '''Changes password of currently logged in user.'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
+            return None
+        
+        return self.__user_int__.change_password(old_password, new_password)
+    
+    def delete_user(self, target: User, user_password: str) -> Optional["User"]:
+
+        '''Deletes target user, can't delete currently logged in user.'''
+
+        if not self.__valid_call__("root", "admin"):
+            return None
+        
         return self.__user_int__.delete_user(target, user_password)
+    
+    # --- Item API --- #
+
+    def get_items(self) -> Optional[list["Item"]]:
+        
+        '''Returns list of all item objects'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
+            return None
+        
+        return self.__item_int__.get_items()
+    
+    def get_item_by_id(self, id: int) -> Optional["Item"]:
+
+        '''Returns item object given id'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
+            return None
+        
+        return self.__item_int__.get_item_by_id(id)
+    
+    def get_item_by_name(self, name: str) -> Optional["Item"]:
+
+        '''Returns item object given name'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
+            return None
+        
+        return self.__item_int__.get_item_by_name(name)
+    
+    def search_item(self, query: str) -> Optional[list["Item"]]:
+
+        '''Returns list of items given query'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
+            return None
+        
+        return self.__item_int__.search_item(query)
+    
+    def add_item(self, name: str, value: int, uom: str) -> Optional["Item"]:
+        
+        '''Creates and adds new item object to database'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
+            return None
+        
+        return self.__item_int__.add_item(name, value, uom)
+
+    def edit_item_name(self, item: "Item", new_name: str) -> Optional["Item"]:
+
+        '''Edits name of the item object''' 
+
+        if not self.__valid_call__("root", "admin", "employee"):
+            return None
+
+        return self.__item_int__.edit_item_name(item, new_name) 
+
+
+    def edit_item_value(self, item: "Item", new_value: int) -> Optional["Item"]:
+
+        '''Edits value of the item object'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
+            return None
+        
+        return self.__item_int__.edit_item_value(item, new_value)
+    
+    def edit_item_uom(self, item: "Item", new_uom: str) -> Optional["Item"]:
+
+        '''Edits uom of the item object'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
+            return None
+        
+        return self.__item_int__.edit_item_uom(item, new_uom)
+    
+    def delete_item(self, item: "Item") -> Optional["Item"]:
+
+        '''Deletes item object from the database'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
+            return None
+        
+        return self.__item_int__.delete_item(item)
     
     # --- Inventory Item API --- #
 
-    def get_inventory_items(self) -> Optional[list[InventoryItem]]:
-        if not self.__valid_call__("admin", "employee", "root"):
+    def get_inventory_items(self) -> Optional[list["InventoryItem"]]:
+
+        '''Returns list of all inventory item objects'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
             return None
+        
         return self.__inventory_item_int__.get_items()
     
-    def add_new_inventory_item(self, name: str, value: int, uom: str, amount: int) -> Optional[InventoryItem]:
-        if not self.__valid_call__("admin", "employee", "root"):
-            return None
-        return self.__inventory_item_int__.add_new_item(name, value, uom, amount)
+    def get_inventory_item_by_id(self, id: int) -> Optional["InventoryItem"]:
+        
+        '''Returns inventory item object given id'''
 
-    def add_inventory_item(self, item: Item, amount: int) -> Optional[InventoryItem]:
-        if not self.__valid_call__("admin", "employee", "root"):
+        if not self.__valid_call__("root", "admin", "employee"):
             return None
+        
+        return self.__inventory_item_int__.get_item_by_id(id)
+    
+    def add_inventory_item(self, item: "Item", amount: int) -> Optional["InventoryItem"]:
+
+        '''Creates and adds new inventory item object into databse'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
+            return None
+        
         return self.__inventory_item_int__.add_item(item, amount)
     
-    def sub_inventory_item_amount(self, item: InventoryItem, amount: int) -> Optional[InventoryItem]:
-        if not self.__valid_call__("admin", "employee", "root"):
+    def add_inventory_item_amount(self, item: "InventoryItem", amount: int) -> Optional["InventoryItem"]:
+        
+        '''Adds amount to inventory item'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
             return None
-        return self.__inventory_item_int__.sub_amount(item, amount)
-    
-    def add_inventory_item_amount(self, item: InventoryItem, amount: int) -> Optional[InventoryItem]:
-        if not self.__valid_call__("admin", "employee", "root"):
-            return None
+        
         return self.__inventory_item_int__.add_amount(item, amount)
     
-    def delete_inventory_item(self, item: InventoryItem) -> Optional[InventoryItem]:
-        if not self.__valid_call__("admin", "employee", "root"):
+    def sub_inventory_item_amount(self, item: "InventoryItem", amount: int) -> Optional["InventoryItem"]:
+
+        '''Subtracts amount from inventory item'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
             return None
-        return self.__inventory_item_int__.delete_item(item)
+        
+        return self.__inventory_item_int__.sub_amount(item, amount)
     
-    def search_inventory_item(self, query: str) -> Optional[list[InventoryItem]]:
-        if not self.__valid_call__("admin", "employee", "root"):
+    def delete_inventory_item(self, item: "InventoryItem") -> Optional["InventoryItem"]:
+
+        '''Deletes inventory item from the databse'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
             return None
-        return self.__inventory_item_int__.search_item(query)
+        
+        return self.__inventory_item_int__.delete_item(item)
     
     # --- Menu Resource API --- #
 
-    def get_menu_resources(self) -> Optional[list[MenuResource]]:
-        if not self.__valid_call__("admin", "employee", "root"):
+    def get_menu_resources(self) -> Optional[list["MenuResource"]]:
+
+        '''Returns list of all menu resource objects'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
             return None
-        return self.__menu_resource_int__.get_items()
+        
+        return self.__menu_resource_int__.get_resources()
     
-    def add_menu_resource(self, item: Item, amount: int) -> Optional[MenuResource]:
-        if not self.__valid_call__("admin", "employee", "root"):
+    def get_menu_resource_by_id(self, id: int) -> Optional["MenuResource"]:
+
+        '''Returns menu resource object given id'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
             return None
+        
+        return self.__menu_resource_int__.get_resource_by_id(id)
+    
+    def add_menu_resource(self, item: "Item", amount: int) -> Optional["MenuResource"]:
+
+        '''Creates and adds new menu resource into databse'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
+            return None
+        
         return self.__menu_resource_int__.add_item(item, amount)
     
-    def edit_menu_resource_amount(self, item: MenuResource, amount: int) -> Optional[MenuResource]:
-        if not self.__valid_call__("admin", "employee", "root"):
+    def delete_menu_resource(self, item: "MenuResource") -> Optional["MenuResource"]:
+
+        '''Delets menu resource object from database'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
             return None
-        return self.__menu_resource_int__.edit_amount(item, amount)
-    
-    def delete_menu_resource(self, item: MenuResource) -> Optional[MenuResource]:
-        if not self.__valid_call__("admin", "employee", "root"):
-            return None
+        
         return self.__menu_resource_int__.delete_item(item)
+    
+    # --- Order Item API --- #
+
+    def get_order_items(self) -> Optional[list["OrderItem"]]:
+
+        '''Returns all order item objects'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
+            return None
+        
+        return self.__order_item_int__.get_items()
+    
+    def get_order_item_by_id(self, id: int) -> Optional["OrderItem"]:
+
+        '''Returns order item object given id'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
+            return None
+        
+        return self.__order_item_int__.get_item_by_id(id)
+    
+    def add_order_item(self, item: "MenuItem", amount: int) -> Optional["OrderItem"]:
+
+        '''Creates and adds new order item into databse'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
+            return None
+        
+        return self.__order_item_int__.add_item(item, amount)
+    
+    def delete_order_item(self, item: "OrderItem") -> Optional["OrderItem"]:
+
+        '''Deletes order item object from databse'''
+        
+        if not self.__valid_call__("root", "admin", "employee"):
+            return None
+        
+        return self.__order_item_int__.delete_item(item)
     
     # --- Menu Item API --- #
 
-    def get_menu_items(self) -> Optional[list[MenuItem]]:
-        if not self.__valid_call__("admin", "employee", "root"):
+    def get_menu_items(self) -> Optional[list["MenuItem"]]:
+
+        '''Returns list of all menu item objects'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
             return None
+        
         return self.__menu_item_int__.get_items()
     
-    def get_menu_items_available(self) -> Optional[list[MenuItem]]:
-        if not self.__valid_call__("admin", "employee", "root"):
+    def get_menu_item_by_id(self, id: int) -> Optional["MenuItem"]:
+
+        '''Returns menu item object given id'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
             return None
-        return self.__menu_item_int__.get_available_items()
+        
+        return self.__menu_item_int__.get_item_by_id(id)
+
+    def get_menu_item_by_name(self, name: str) -> Optional["MenuItem"]:
+
+        '''Returns menu item object given name'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
+            return None
+        
+        return self.__menu_item_int__.get_item_by_name(name)
     
-    def search_menu_item(self, query: str) -> Optional[list[MenuItem]]:
-        if not self.__valid_call__("admin", "employee", "root"):
+    def search_menu_item(self, query: str) -> Optional[list["MenuItem"]]:
+
+        '''Returns menu item objects given query'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
             return None
+        
         return self.__menu_item_int__.search_item(query)
     
-    def add_menu_item(self, name: str, cost: int, items: list[MenuResource]) -> Optional[MenuItem]:
-        if not self.__valid_call__("admin", "employee", "root"):
+    def get_available_menu_items(self) -> Optional[list["MenuItem"]]:
+
+        '''Returns all available menu item objects'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
             return None
+        
+        return self.__menu_item_int__.get_available_items()
+    
+    def add_menu_item(self, name: str, cost: int, items: list["MenuResource"]) -> Optional["MenuItem"]:
+
+        '''Creates and adds new menu item object into database'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
+            return None
+        
         return self.__menu_item_int__.add_item(name, cost, items)
-    
-    def edit_menu_item(self, item: MenuItem, name: Optional[str] = None, cost: Optional[int] = None, items: Optional[list[MenuResource]] = None) -> Optional[MenuItem]:
-        if not self.__valid_call__("admin", "employee", "root"):
+
+    def edit_menu_item_name(self, item: "MenuItem", name: str) -> Optional["MenuItem"]:
+
+        '''Edits name of menu item object'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
             return None
-        return self.__menu_item_int__.edit_item(item, name, cost, items)
+        
+        return self.__menu_item_int__.edit_name(item, name)
     
-    def delete_menu_item(self, item: MenuItem) -> Optional[MenuItem]:
-        if not self.__valid_call__("admin", "employee", "root"):
+    def edit_menu_item_cost(self, item: "MenuItem", cost: int) -> Optional["MenuItem"]:
+
+        '''Edits cost of menu item object'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
             return None
+        
+        return self.__menu_item_int__.edit_cost(item, cost)
+    
+    def edit_menu_item_resources(self, item: "MenuItem", resources: list["MenuResource"]) -> Optional["MenuItem"]:
+
+        '''Edits resources for menu item objecct'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
+            return None
+        
+        return self.__menu_item_int__.edit_resources(item, resources)
+    
+    def delete_menu_item_object(self, item: "MenuItem") -> Optional["MenuItem"]:
+
+        '''Deletes menu item object from databse'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
+            return None
+        
         return self.__menu_item_int__.delete_item(item)
     
-    def get_menu_item(self, item_id: int) -> Optional[MenuItem]:
-        if not self.__valid_call__("admin", "employee", "root"):
-            return None
-        return self.__menu_item_int__.get_item_by_id(item_id)
-    
-    # --- Order API --- #
+    # --- Order Item API --- #
 
-    def get_orders(self) -> Optional[list[Order]]:
-        if not self.__valid_call__("admin", "employee", "root"):
+    def get_orders(self) -> Optional[list["Order"]]:
+
+        '''Returns all order objects'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
             return None
+        
         return self.__order_int__.get_orders()
     
-    def add_order(self, value: int, items: list[MenuItem]) -> Optional[Order]:
-        if not self.__valid_call__("admin", "employee", "root"):
+    def get_order_by_id(self, id: int) -> Optional["Order"]:
+
+        '''Returns order object given id'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
             return None
-        return self.__order_int__.add_order(value, items)
+        
+        return self.__order_int__.get_order_by_id(id)
     
-    def edit_order(self, order: Order, value: Optional[int] = None, items: Optional[list[MenuItem]] = None) -> Optional[Order]:
-        if not self.__valid_call__("admin", "employee", "root"):
+    def add_order(self, items: list["OrderItem"]) -> Optional["Order"]:
+
+        '''Creates and adds new order to database'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
             return None
-        return self.__order_int__.edit_order(order, value, items)
+        
+        return self.__order_int__.add_order(items)
     
-    def delete_order(self, order: Order) -> Optional[Order]:
-        if not self.__valid_call__("admin", "employee", "root"):
+    def edit_order(self, order: "Order", items: list["OrderItem"]) -> Optional["Order"]:    
+
+        '''Edits items of order object'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
             return None
+        
+        return self.__order_int__.edit_order(order, items)
+    
+    def delete_order(self, order: "Order") -> Optional["Order"]:
+
+        '''Delets order object from database'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
+            return None
+        
         return self.__order_int__.delete_order(order)
 
 
+# Order(amount, [OrderItem(amount, MenuItem([MenuResource(amount, item)]))]
+
+# Orders work with Order Items
+# Order Items work with amounts of Menu Items
+# Menu Items work with Menu Resources
+# Menu Resources work with amounts of Items
+
+# Inventory Items work with amounts of Items
 
 
-# handler = DatabaseAPI()
+handler = DatabaseAPI()
 
-# print(handler.login(1, "password"))
+user = UserInterface()
+user.create_root("root", "root")
 
 
-# def database_seed() -> None:
-
-#     items = [("salt", 1, "kg"), ("sugar", 1, "kg"),
-#          ("water", 1, "l"), ("sunflower oil", 5, "l"),
-#          ("butter", 15, "kg"), ("fat", 13, "kg"),
-#          ("beans", 10, "kg"), ("corn", 9, "kg"),
-#          ("spinach", 8, "kg"), ("tomatoes", 15, "kg"),
-#          ("potatoes", 4, "kg"), ("bread", 3, "kg")]
-
-#     for name, value, uom in items:
-#         handler.add_item(name, value, uom)
-
-#     db_items = handler.get_items()
-
-#     if db_items is None:
-#         return
-
-#     for item in db_items:
-#         handler.add_inventory_item(item, 100)
-
-#     for item in db_items:
-#         handler.add_menu_resource(item, 20)
-
-#     resources = handler.get_menu_resources()
-
-#     if resources is None:
-#         return
-
-#     soup = handler.add_menu_item("soup", 10, [resources[0], resources[1]])
-#     pizza  = handler.add_menu_item("pizza", 20, [resources[2], resources[3], resources[4], resources[5]])
-
-#     if soup is None or pizza is None:
-#         return
-
-#     order1 = handler.add_order(20, [soup, pizza, pizza])
-
-# orders = handler.get_orders()
-# print(orders[0].items)
-
-# print(orders[0].items)
-
-# items = handler.get_items()
-# for item in items:
-#     handler.delete_item(item)
-    
+print(handler.login("root", "root"))
