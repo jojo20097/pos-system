@@ -135,13 +135,13 @@ class MenuItem(Base):
 
     order_items: Mapped[list["OrderItem"]] = relationship("OrderItem", cascade="all")
 
-    def __init__(self, name: str, cost: int, items: list["MenuResource"]) -> None:
+    def __init__(self, name: str, cost: int, resources: list["MenuResource"]) -> None:
         self.name = name
         self.cost = cost
-        self.items = items
+        self.resources = resources
 
     def __repr__(self) -> str:
-        return f"({self.id}) {self.name} {self.cost} {self.items}"
+        return f"({self.id}) {self.name} {self.cost} {self.resources}"
 
 
 class OrderItem(Base):
@@ -406,7 +406,7 @@ class ItemInterface:
         threshold = 80
 
         for item in self.items:
-            if fuzz.ration(query, item.name) >= threshold:
+            if fuzz.ratio(query, item.name) >= threshold:
                 items.append(item)
             elif item.name.lower().startswith(query.lower()):
                 items.append(item)
@@ -608,7 +608,7 @@ class MenuItemInterface:
         threshold = 80
 
         for item in self.items:
-            if fuzz.ration(query, item.name) >= threshold:
+            if fuzz.ratio(query, item.name) >= threshold:
                 items.append(item)
             elif item.name.lower().startswith(query.lower()):
                 items.append(item)
@@ -1289,8 +1289,10 @@ class DatabaseAPI:
 
 handler = DatabaseAPI()
 
-user = UserInterface()
-user.create_root("root", "root")
+# user = UserInterface()
+# user.create_root("root", "root")
 
 
 print(handler.login("root", "root"))
+
+menu_items = handler.get_menu_items()

@@ -8,9 +8,10 @@ from main import DatabaseAPI
 
 dbAPI = DatabaseAPI()
 handler = dbAPI
-print(dbAPI.login(1, "password"))
+print(dbAPI.login("root", "root"))
 
 def database_seed() -> None:
+
     items = [("salt", 1, "kg"), ("sugar", 1, "kg"),
          ("water", 1, "l"), ("sunflower oil", 5, "l"),
          ("butter", 15, "kg"), ("fat", 13, "kg"),
@@ -43,12 +44,17 @@ def database_seed() -> None:
     if soup is None or pizza is None:
         return
 
-    order1 = handler.add_order(20, [soup, pizza, pizza])
+    soup_item = handler.add_order_item(soup, 2)
+    pizza_item = handler.add_order_item(pizza, 4)
 
-# database_seed()
+    if soup_item is None or pizza_item is None:
+        return
+
+    order1 = handler.add_order([soup_item, pizza_item])
+
+database_seed()
 
 # flake8: noqa
-
 
 class NavFrame(customtkinter.CTkFrame):
     def __init__(self, master, app):
@@ -169,7 +175,7 @@ class TableLine(customtkinter.CTkFrame):
     def remove(self):
         if self.parent.column_names == ["Menu Id", "Name", "Price"]:
             menu_id = self.values[0]
-            menu_item = dbAPI.get_menu_item(menu_id)
+            menu_item = dbAPI.get_menu_item_by_id(menu_id)
             if menu_item is None:
                 popup = ErrorPopup(self, "Menu item not found")
                 self.app.wait_window(popup)
@@ -195,9 +201,10 @@ class TableLine(customtkinter.CTkFrame):
             entry_popup = customtkinter.CTkInputDialog(text="Password", title="User deletion auth")
             password = entry_popup.get_input()
             remove_user_popup.attributes("-topmost", False)
-            res = dbAPI.delete_user_by_id(user_id, password)
+            usr = dbAPI.get_user_by_id(user_id)
+            res = dbAPI.delete_user(usr, password)
             if res is None:
-                popup = ErrorPopup(self, "Wrong password, try again")
+                popup = ErrorPopup(self, "Wrong password or can't delete user")
                 self.app.wait_window(popup)
                 return
             remove_user_popup.get_all_users()
@@ -273,10 +280,11 @@ class TableFrame(customtkinter.CTkScrollableFrame):
                 values = [item.id, item.name, item.value_per_uom, item.uom]
                 new_values.append(values)
         elif self.inv:
-            inv_items = dbAPI.search_inventory_item(string)
-            for item in inv_items:
-                values = [item.item_id, item.item.name, item.item.value_per_uom, item.item.uom, item.amount]
-                new_values.append(values)
+            inv_items = dbAPI.search_item(string)
+            if inv_items is not None:
+                for item in inv_items:
+                    values = [item.id, item.name, item.value_per_uom, item.uom, item.inventory_item.amount]
+                    new_values.append(values)
         else:
             menu_items = dbAPI.search_menu_item(string)
             for item in menu_items:
@@ -317,7 +325,7 @@ class HomeFrame(customtkinter.CTkFrame):
         if button_type == "order":
             form = DynamicPopup(self.app, "Create Order", [], create_order=True)
         elif button_type == "newuser":
-            form = DynamicPopup(self.app, "Create User", ["Permissions:", "Password:", "Your password:"])
+            form = DynamicPopup(self.app, "Create User", ["Userename:", "Permissions:", "Password:", "Your password:"])
         elif button_type == "deleteuser":
             form = DynamicPopup(self.app, "Remove User", [], remove_users=True)
         self.app.wait_window(form)
@@ -326,22 +334,24 @@ class HomeFrame(customtkinter.CTkFrame):
         print(f"Order items are {form.items}")
         print(f"User to remove or add is {form.input_values}")
         if button_type == "newuser":
-            permissions = form.input_values[0]
-            password = form.input_values[1]
-            curr_password = form.input_values[2]
-            res = dbAPI.create_user(curr_password, password, permissions)
+            username = form.input_values[0]
+            permissions = form.input_values[1]
+            password = form.input_values[2]
+            curr_password = form.input_values[3]
+            res = dbAPI.create_user(username, curr_password, password, permissions)
             if res is None:
                 popup = ErrorPopup(self, "User creation failed")
                 self.app.wait_window(popup)
         if button_type == "deleteuser":
             id = form.input_values[0]
             your_password = form.input_values[1]
-            res = dbAPI.delete_user_by_id(id, your_password)
+            usr = dbAPI.get_user_by_id(id)
+            res = dbAPI.delete_user(usr, your_password)
             if res is None:
                 popup = ErrorPopup(self, "User deletion failed")
                 self.app.wait_window(popup)
         if button_type == "order":
-            new_order = dbAPI.add_order(form.total, form.items)
+            new_order = dbAPI.add_order(form.items)
             print(form.total, form.items)
             if new_order is None:
                 popup = ErrorPopup(self, "Order creation failed")
@@ -644,7 +654,7 @@ class DynamicPopup(customtkinter.CTkToplevel):
 
         if create_type == "order":
             for id, amount in form.menu_dict.items():
-                menu_item = dbAPI.get_menu_item(id)
+                menu_item = dbAPI.get_menu_item_by_id(id)
                 if menu_item is None:
                     popup = ErrorPopup(self, "Menu item fetch failed")
                     self.app.wait_window(popup)
@@ -659,7 +669,7 @@ class DynamicPopup(customtkinter.CTkToplevel):
         
         if create_type == "menu":
             for id, amount in form.item_dict.items():
-                item = dbAPI.get_item(id)
+                item = dbAPI.get_item_by_id(id)
                 if item is None:
                     popup = ErrorPopup(self, "Item fetch failed")
                     self.app.wait_window(popup)
