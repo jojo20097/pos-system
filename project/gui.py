@@ -135,8 +135,8 @@ class NavFrame(customtkinter.CTkFrame):
 
 
 class TableLine(customtkinter.CTkFrame):
-    def __init__(self, master, app, row, values, include_modify, include_remove, color):
-        super().__init__(master, corner_radius=0, fg_color=color)
+    def __init__(self, master, app, row, values, include_modify, include_remove, include_add):
+        super().__init__(master, corner_radius=0)
 
         self.app: App = app
         self.parent: TableFrame = master
@@ -155,16 +155,69 @@ class TableLine(customtkinter.CTkFrame):
             modify_button.grid(row=row, column=button_column, padx=10, pady=(10, 0))
             button_column += 1
         if include_remove:
-            remove_button = customtkinter.CTkButton(master, text="Remove")
+            remove_button = customtkinter.CTkButton(master, text="Remove", command=self.remove)
             self.elements.append(remove_button)
             remove_button.grid(row=row, column=button_column, padx=10, pady=(10, 0))
+        if include_add:
+            add_button = customtkinter.CTkButton(master, text="Add", command=self.add_item)
+            self.elements.append(add_button)
+            add_button.grid(row=row, column=button_column, padx=10, pady=(10, 0))
         
     def modify_table(self):
         self.parent.refresh_table([["1", "Piz", "10", "UOM", "Amount"], ["2", "Piz", "10", "UOM", "Amount"], ["3", "Piz", "10", "UOM", "Amount"], ["4", "Piz", "10", "UOM", "Amount"], ["5", "Piz", "10", "UOM", "Amount"]])
 
+    def remove(self):
+        if self.parent.column_names == ["Menu Id", "Name", "Price"]:
+            menu_id = self.values[0]
+            menu_item = dbAPI.get_menu_item(menu_id)
+            if menu_item is None:
+                popup = ErrorPopup(self, "Menu item not found")
+                self.app.wait_window(popup)
+                return
+            res = dbAPI.delete_menu_item(menu_item)
+            if res is None:
+                popup = ErrorPopup(self, "Menu item deletion failed")
+                self.app.wait_window(popup)
+                return
+            menu_frame: MenuFrame = self.parent.parent
+            menu_frame.get_all_menu_items()
+            self.parent.refresh_table(menu_frame.ui_items)
+    
+        if self.parent.column_names == ["Id", "Value", "Date"]:
+            order_id = self.values[0]
+            # order = dbAPI.get_order
+            # dbAPI.delete_order()
+
+        if self.parent.column_names == ["ID", "Name", "Permissions"]:
+            remove_user_popup: DynamicPopup = self.parent.parent
+            remove_user_popup.attributes("-topmost", False)
+            user_id = self.values[0]
+            entry_popup = customtkinter.CTkInputDialog(text="Password", title="User deletion auth")
+            password = entry_popup.get_input()
+            remove_user_popup.attributes("-topmost", False)
+            res = dbAPI.delete_user_by_id(user_id, password)
+            if res is None:
+                popup = ErrorPopup(self, "Wrong password, try again")
+                self.app.wait_window(popup)
+                return
+            remove_user_popup.get_all_users()
+            self.parent.refresh_table(remove_user_popup.ui_items)
+
+    def add_item(self):
+        add_popup: AddItemPopup = self.parent.parent
+        add_popup.attributes("-topmost", False)
+        entry_popup = customtkinter.CTkInputDialog(text="Enter amount:", title="Amount")
+        try:
+            amount = float(entry_popup.get_input())
+        except:
+            popup = ErrorPopup(self, "Wrong amount entered")
+            self.app.wait_window(popup)
+            return
+        add_popup.attributes("-topmost", True)
+        add_popup.add_item(self.values[0], amount)
 
 class TableFrame(customtkinter.CTkScrollableFrame):
-    def __init__(self, master, app, column_names, values, include_modify, include_remove, search: bool = True, inv=True):
+    def __init__(self, master, app, column_names, values, include_modify, include_remove, include_add=False, search: bool = True, inv=True):
         super().__init__(master, corner_radius=0)
 
         self.app: App = app
@@ -175,6 +228,7 @@ class TableFrame(customtkinter.CTkScrollableFrame):
         self.values = values
         self.modify = include_modify
         self.remove = include_remove
+        self.add = include_add
         self.inv = inv
 
         self.grid_columnconfigure(len(column_names)+2, weight=1)
@@ -195,7 +249,7 @@ class TableFrame(customtkinter.CTkScrollableFrame):
 
         # Create TableLine instances
         for row, values in enumerate(self.values):
-            self.lines.append(TableLine(self, self.app, row+1, values, self.modify, self.remove, "grey70" if row % 2 == 0 else "grey90"))
+            self.lines.append(TableLine(self, self.app, row+1, values, self.modify, self.remove, self.add))
 
     def refresh_table(self, new_values):
         # Clear existing lines
@@ -207,13 +261,18 @@ class TableFrame(customtkinter.CTkScrollableFrame):
         self.values = new_values
         # Recreate TableLine instances with updated values
         for row, values in enumerate(self.values):
-            line = TableLine(self, self.app, row+1, values, self.modify, self.remove, "grey70" if row % 2 == 0 else "grey90")
+            line = TableLine(self, self.app, row+1, values, self.modify, self.remove, self.add)
             self.lines.append(line)
 
     def get_search_string(self, sequence):
         string = self.search.get()
         new_values = []
-        if self.inv:
+        if self.column_names == ["Item ID", "Name", "Cost", "UOM"]:
+            items = dbAPI.search_item(string)
+            for item in items:
+                values = [item.id, item.name, item.value_per_uom, item.uom]
+                new_values.append(values)
+        elif self.inv:
             inv_items = dbAPI.search_inventory_item(string)
             for item in inv_items:
                 values = [item.item_id, item.item.name, item.item.value_per_uom, item.item.uom, item.amount]
@@ -260,7 +319,7 @@ class HomeFrame(customtkinter.CTkFrame):
         elif button_type == "newuser":
             form = DynamicPopup(self.app, "Create User", ["Permissions:", "Password:", "Your password:"])
         elif button_type == "deleteuser":
-            form = DynamicPopup(self.app, "Remove User", ["ID:", "Your Password:"])
+            form = DynamicPopup(self.app, "Remove User", [], remove_users=True)
         self.app.wait_window(form)
         if form.cancelled:
             return
@@ -283,6 +342,7 @@ class HomeFrame(customtkinter.CTkFrame):
                 self.app.wait_window(popup)
         if button_type == "order":
             new_order = dbAPI.add_order(form.total, form.items)
+            print(form.total, form.items)
             if new_order is None:
                 popup = ErrorPopup(self, "Order creation failed")
                 self.app.wait_window(popup)
@@ -300,7 +360,7 @@ class InventoryFrame(customtkinter.CTkFrame):
 
         self.get_all_items()
 
-        self.table_frame = TableFrame(self, self.app, ["Id", "Name", "Price", "UOM", "Amount"], self.ui_items, True, False, True)
+        self.table_frame = TableFrame(self, self.app, ["Id", "Name", "Price", "UOM", "Amount"], self.ui_items, True, False, False)
         self.table_frame.grid(row=1, column=0, sticky="nwes", padx=50, pady=0)
 
         self.view_label = customtkinter.CTkLabel(self, text=f"Inventory", font=("", 24, "bold"))
@@ -324,12 +384,18 @@ class InventoryFrame(customtkinter.CTkFrame):
     def open_popup_form(self):
         form = DynamicPopup(self.app, "Add Item", ["Name:", "Value:", "UOM:", "Amount:"])
         self.app.wait_window(form)
+        if form.cancelled:
+            return
         print(f"Item to add is {form.input_values}")
-        name = form.input_values[0]
-        value = float(form.input_values[1])
-        uom = form.input_values[2]
-        amount = int(form.input_values[3])
-
+        try:
+            name = form.input_values[0]
+            value = float(form.input_values[1])
+            uom = form.input_values[2]
+            amount = int(form.input_values[3])
+        except:
+            popup = ErrorPopup(self, "Invalid item values")
+            self.app.wait_window(popup)
+            return
         item = dbAPI.add_item(name, value, uom)
         if item is None:
             popup = ErrorPopup(self, "Item retrieval failed")
@@ -497,7 +563,7 @@ class CustomMultiInputDialog(customtkinter.CTkToplevel):
 
 
 class DynamicPopup(customtkinter.CTkToplevel):
-    def __init__(self, parent, title, prompts, create_order: bool = False, create_menu: bool = False):
+    def __init__(self, parent, title, prompts, create_order: bool = False, create_menu: bool = False, remove_users: bool = False):
         super().__init__(parent)
         self.attributes("-topmost", True)
 
@@ -528,7 +594,7 @@ class DynamicPopup(customtkinter.CTkToplevel):
             self.input_entries.append(entry)
 
         if create_menu:
-            self.added_items_frame = TableFrame(self, self.app, ["Name", "Amount"], [], False, False, search=False)
+            self.added_items_frame = TableFrame(self, self.app, ["Name", "Amount"], [], False, False, False, False, False)
             self.added_items_frame.grid(row=5, column=0, columnspan=1, rowspan=1, sticky="nesw", padx=20, pady=20)
             self.add_item_button = customtkinter.CTkButton(self, text="Add Item", command=self.add_to_menu)
             self.add_item_button.grid(row=1, column=3, rowspan=6, padx=20)
@@ -541,6 +607,11 @@ class DynamicPopup(customtkinter.CTkToplevel):
             self.total_cost = customtkinter.CTkLabel(self, text="0.00 EUR")
             self.total_cost.grid(row=1, column=2)
 
+        if remove_users:
+            self.get_all_users()
+            self.users_frame = TableFrame(self, self.app, ["ID", "Name", "Permissions"], self.ui_items, False, True, False, False, False)
+            self.users_frame.grid(row=0, column=0, columnspan=3, sticky="nesw", padx=20, pady=20)
+
         # Add Confirm button
         ok_button = customtkinter.CTkButton(self, text="Confirm", command=self.get_input_values)
         ok_button.grid(row=2*len(prompts)+2, column=0, columnspan=3, padx=100 if not create_menu else 20, pady=20)
@@ -548,6 +619,17 @@ class DynamicPopup(customtkinter.CTkToplevel):
         # Add Cancel button
         cancel_button = customtkinter.CTkButton(self, text="Cancel", command=self.close)
         cancel_button.grid(row=2*len(prompts)+2, column=2, padx=20, pady=20, sticky="we")
+
+    def get_all_users(self):
+        users = dbAPI.get_users()
+        if users is None:
+            popup = ErrorPopup(self, "Getting users failed")
+            self.app.wait_window(popup)
+            return
+        self.ui_items = []
+        for user in users:
+            values = [user.id, user.id, user.permissions]
+            self.ui_items.append(values)
 
     def add_to_order(self):
         self.create_order_add_item("order")
@@ -557,36 +639,35 @@ class DynamicPopup(customtkinter.CTkToplevel):
 
     def create_order_add_item(self, create_type: str):
         self.attributes("-topmost", False)
-        form = AddItemPopup(self)
+        form = AddItemPopup(self, self.app, create_type)
         self.app.wait_window(form)
-        item_id = form.input_values[0]
-        amount = form.input_values[1]
 
         if create_type == "order":
-            menu_item = dbAPI.get_menu_item(item_id)
-            if menu_item is None:
-                popup = ErrorPopup(self, "Menu item fetch failed")
-                self.app.wait_window(popup)
-                return
-            cost = menu_item.cost * int(amount)
-            format_cost = f"{cost:.2f} EUR"
-            values = [menu_item.name, amount, format_cost]
-            self.total += cost
-            self.ui_items.append(values)
-            self.items.append(menu_item)
+            for id, amount in form.menu_dict.items():
+                menu_item = dbAPI.get_menu_item(id)
+                if menu_item is None:
+                    popup = ErrorPopup(self, "Menu item fetch failed")
+                    self.app.wait_window(popup)
+                    return
+                cost = menu_item.cost * int(amount)
+                format_cost = f"{cost:.2f} EUR"
+                values = [menu_item.name, amount, format_cost]
+                self.total += cost
+                self.ui_items.append(values)
+                self.items.append(menu_item)
             self.refresh_total_cost_label()
         
         if create_type == "menu":
-            item = dbAPI.get_item(item_id)
-            if item is None:
-                popup = ErrorPopup(self, "Item fetch failed")
-                self.app.wait_window(popup)
-                return
-            values = [item.name, amount]
-            self.ui_items.append(values)
-            self.items.append((item, amount))
+            for id, amount in form.item_dict.items():
+                item = dbAPI.get_item(id)
+                if item is None:
+                    popup = ErrorPopup(self, "Item fetch failed")
+                    self.app.wait_window(popup)
+                    return
+                values = [item.name, amount]
+                self.ui_items.append(values)
+                self.items.append((item, amount))
 
-        # self.items.append(form.input_values)
         self.added_items_frame.refresh_table(self.ui_items)
         self.attributes("-topmost", True)
 
@@ -595,7 +676,6 @@ class DynamicPopup(customtkinter.CTkToplevel):
 
     def get_input_values(self, sequence=None):
         self.input_values = [entry.get() for entry in self.input_entries]
-        # TODO: call backend
         self.cancelled = False
         self.destroy()
         self.app.focus()
@@ -606,27 +686,38 @@ class DynamicPopup(customtkinter.CTkToplevel):
 
 
 class AddItemPopup(customtkinter.CTkToplevel):
-    def __init__(self, parent):
+    def __init__(self, parent, app, create_type):
         super().__init__(parent)
         self.attributes("-topmost", True)
 
-        self.app: App = parent
+        self.app: App = app
         self.title("Add menu item")
-        self.input_values = []
+        self.type = create_type
+        self.menu_dict = {}
+        self.item_dict = {}
 
-        self.geometry("400x225+1080+450")
+        self.geometry("800x450+880+375")
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
         self.grid_rowconfigure(5, weight=1)
 
-        self.id_label = customtkinter.CTkLabel(self, text="ID:")
-        self.id_label.grid(row=1, column=0, columnspan=3)
-        self.id_entry = customtkinter.CTkEntry(self, width=200)
-        self.id_entry.grid(row=2, column=0, columnspan=3)
-        self.amount_label = customtkinter.CTkLabel(self, text="Amount:")
-        self.amount_label.grid(row=3, column=0, columnspan=3)
-        self.amount_entry = customtkinter.CTkEntry(self, width=200)
-        self.amount_entry.grid(row=4, column=0, columnspan=3)
+        if create_type == "menu":
+            items = dbAPI.get_items()
+            if items is None:
+                popup = ErrorPopup(self, "Getting items failed")
+                self.app.wait_window(popup)
+                return
+            ui_items = []
+            for item in items:
+                values = [item.id, item.name, item.value_per_uom, item.uom]
+                ui_items.append(values)
+            self.menu_table_frame = TableFrame(self, self.app, ["Item ID", "Name", "Cost", "UOM"], ui_items, False, False, True, True, False)
+            self.menu_table_frame.grid(row=0, column=0, columnspan=3, rowspan=6, padx=20, pady=20, sticky="nswe")
+
+        if create_type == "order":
+            self.app.menu.get_all_menu_items()
+            self.menu_table_frame = TableFrame(self, self.app, ["Menu Id", "Name", "Price"], self.app.menu.ui_items, False, False, True, True, False)
+            self.menu_table_frame.grid(row=0, column=0, columnspan=3, rowspan=6, padx=20, pady=20, sticky="nswe")
 
         # Add Confirm button
         ok_button = customtkinter.CTkButton(self, text="Confirm", command=self.get_input_values)
@@ -637,15 +728,24 @@ class AddItemPopup(customtkinter.CTkToplevel):
         cancel_button.grid(row=6, column=2, padx=20, pady=20, sticky="we")
 
     def get_input_values(self, sequence=None):
-        self.input_values = [entry.get() for entry in [self.id_entry, self.amount_entry]]
-        # TODO: call backend
         self.destroy()
         self.app.focus()
-
 
     def close(self):
         self.destroy()
         self.app.focus()
+
+    def add_item(self, id, amount):
+        if self.type == "menu":
+            if id not in self.item_dict:
+                self.item_dict[id] = amount
+            else:
+                self.item_dict[id] += amount
+        if self.type == "order":
+            if id not in self.item_dict:
+                self.menu_dict[id] = amount
+            else:
+                self.menu_dict[id] += amount
 
 
 class ErrorPopup(customtkinter.CTkToplevel):
