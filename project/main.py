@@ -738,6 +738,11 @@ class OrderInterface:
 
         for item in items:
             for resource in item.item.resources:
+                if resource.item.inventory_item.amount < resource.amount:
+                    return False
+
+        for item in items:
+            for resource in item.item.resources:
                 resource.item.inventory_item.amount -= resource.amount
 
         if not self.__db_int__.edit(None):
