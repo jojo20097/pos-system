@@ -483,7 +483,7 @@ class InventoryItemInterface:
 
         item.amount = amount
 
-        if self.__db_int__.edit(item):
+        if not self.__db_int__.edit(item):
             return None
 
         self.__update_items__()
