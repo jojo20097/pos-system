@@ -1220,7 +1220,7 @@ class DatabaseAPI:
         
         return self.__menu_item_int__.edit_resources(item, resources)
     
-    def delete_menu_item_object(self, item: "MenuItem") -> Optional["MenuItem"]:
+    def delete_menu_item(self, item: "MenuItem") -> Optional["MenuItem"]:
 
         '''Deletes menu item object from databse'''
 

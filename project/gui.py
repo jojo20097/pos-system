@@ -702,11 +702,12 @@ class DynamicPopup(customtkinter.CTkToplevel):
 
 class AddItemPopup(customtkinter.CTkToplevel):
 
-    def __init__(self, parent, app, create_type):
+    def __init__(self, parent: customtkinter.CTkToplevel, app: "App", create_type: str) -> None:
         super().__init__(parent)
+
         self.attributes("-topmost", True)
 
-        self.app: App = app
+        self.app: "App" = app
         self.title("Add menu item")
         self.type = create_type
         self.menu_dict = {}
@@ -743,20 +744,22 @@ class AddItemPopup(customtkinter.CTkToplevel):
         cancel_button = customtkinter.CTkButton(self, text="Cancel", command=self.close)
         cancel_button.grid(row=6, column=2, padx=20, pady=20, sticky="we")
 
-    def get_input_values(self, sequence=None):
+    def get_input_values(self) -> None:
         self.destroy()
         self.app.focus()
 
-    def close(self):
+    def close(self) -> None:
         self.destroy()
         self.app.focus()
 
-    def add_item(self, id, amount):
+    def add_item(self, id, amount) -> None:
+
         if self.type == "menu":
             if id not in self.item_dict:
                 self.item_dict[id] = amount
             else:
                 self.item_dict[id] += amount
+
         if self.type == "order":
             if id not in self.item_dict:
                 self.menu_dict[id] = amount
@@ -765,14 +768,15 @@ class AddItemPopup(customtkinter.CTkToplevel):
 
 
 class ErrorPopup(customtkinter.CTkToplevel):
-    def __init__(self, parent, error_description):
+
+    def __init__(self, parent: customtkinter.CTkFrame, error_description: str) -> None:
         super().__init__(parent)
+
         self.attributes("-topmost", True)
 
-        self.app: App = parent
-        self.title("Error occured")
-        self.input_values = []
-
+        self.app: "App" = parent
+        self.title("Error")
+        
         self.geometry("400x225+1080+450")
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
@@ -795,23 +799,13 @@ class App(customtkinter.CTk):
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
 
-        
-    def init_frames(self):
+    def init_frames(self) -> None:
     
         self.navigation_frame = NavFrame(master=self, app=self)
-
-        # create home frame
         self.home = HomeFrame(master=self, app=self)
-
-        # create inventory frame
         self.inventory = InventoryFrame(master=self, app=self)
-
-        # create order history frame
         self.order = OrderHistoryFrame(master=self, app=self)
-
-        # create menu frame
         self.menu = MenuFrame(master=self, app=self)
-
         self.finance = FinanceFrame(master=self, app=self)
 
 
@@ -826,6 +820,7 @@ if __name__ == "__main__":
         dialog = CustomMultiInputDialog(app, "Sign In", ["Username:", "Password:"])
         dialog.geometry(f"300x200+{x_position}+{y_position}")
         app.wait_window(dialog)
+
         if dbAPI.login(dialog.input_values[0], dialog.input_values[1]):
             break
 
