@@ -775,6 +775,8 @@ class OrderInterface:
 
         return value
 
+    def __get_this_year_orders__(self) -> list["Order"]:
+        return session.query(Order).filter(Order.date.year == datetime.date.today().year).all()
 
     def get_orders(self) -> list["Order"]:
         return session.query(Order).all()
@@ -782,12 +784,9 @@ class OrderInterface:
     def get_order_by_id(self, id: int) -> Optional["Order"]:
         return session.query(Order).filter_by(id=id).first()
     
-    def get_this_year_orders(self) -> list["Order"]:
-        return session.query(Order).filter(Order.date.year == datetime.date.today().year).all()
-
     def get_this_year_statistics(self) -> list[list[int]]:
 
-        orders = self.get_this_year_orders()
+        orders = self.__get_this_year_orders__()
         monthly_revenues = [[0, 0] for _ in range(12)]
 
         for order in orders:
@@ -1249,7 +1248,7 @@ class DatabaseAPI:
         
         return self.__menu_item_int__.delete_item(item)
     
-    # --- Order Item API --- #
+    # --- Order API --- #
 
     def get_orders(self) -> Optional[list["Order"]]:
 
@@ -1268,6 +1267,15 @@ class DatabaseAPI:
             return None
         
         return self.__order_int__.get_order_by_id(id)
+    
+    def get_this_year_statistics(self) -> list[list[int]]:
+
+        '''Returns statistics for the current year'''
+
+        if not self.__valid_call__("root", "admin", "employee"):
+            return None
+        
+        return self.__order_int__.get_this_year_statistics()
     
     def add_order(self, items: list["OrderItem"]) -> Optional["Order"]:
 
