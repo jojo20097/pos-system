@@ -1268,7 +1268,7 @@ class DatabaseAPI:
         
         return self.__order_int__.get_order_by_id(id)
     
-    def get_this_year_statistics(self) -> list[list[int]]:
+    def get_this_year_statistics(self) -> Optional[list[list[int]]]:
 
         '''Returns statistics for the current year'''
 
