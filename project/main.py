@@ -739,6 +739,7 @@ class OrderInterface:
         for item in items:
             for resource in item.item.resources:
                 if resource.item.inventory_item.amount < resource.amount * item.amount:
+                    
                     return False
 
         for item in items:
@@ -781,6 +782,20 @@ class OrderInterface:
     def get_order_by_id(self, id: int) -> Optional["Order"]:
         return session.query(Order).filter_by(id=id).first()
     
+    def get_this_year_orders(self) -> list["Order"]:
+        return session.query(Order).filter(Order.date.year == datetime.date.today().year).all()
+
+    def get_this_year_statistics(self) -> list[list[int]]:
+
+        orders = self.get_this_year_orders()
+        monthly_revenues = [[0, 0] for _ in range(12)]
+
+        for order in orders:
+            monthly_revenues[order.date.month - 1][0] += 1
+            monthly_revenues[order.date.month - 1][1] += order.value
+
+        return monthly_revenues
+
     def add_order(self, items: list["OrderItem"]) -> Optional["Order"]:
 
         if not self.__sub_order_resources__(items):
