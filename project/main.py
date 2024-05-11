@@ -587,7 +587,7 @@ class MenuItemInterface:
 
     def __is_available__(self, item: "MenuItem") -> bool:
 
-        for resource in item.items:
+        for resource in item.resources:
             if resource.item.inventory_item.amount < resource.amount:
                 return False
 
