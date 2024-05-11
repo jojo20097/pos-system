@@ -776,7 +776,7 @@ class OrderInterface:
         return value
 
     def __get_this_year_orders__(self) -> list["Order"]:
-        return session.query(Order).filter(Order.date.year == datetime.date.today().year).all()
+        return session.query(Order).filter(Order.date.cast(datetime.date).year == datetime.date.today().year).all()
 
     def get_orders(self) -> list["Order"]:
         return session.query(Order).all()
@@ -786,8 +786,10 @@ class OrderInterface:
     
     def get_this_year_statistics(self) -> list[list[int]]:
 
+        number_of_months = datetime.date.today().month
+
         orders = self.__get_this_year_orders__()
-        monthly_revenues = [[0, 0] for _ in range(12)]
+        monthly_revenues = [[0, 0] for _ in range(number_of_months)]
 
         for order in orders:
             monthly_revenues[order.date.month - 1][0] += 1
