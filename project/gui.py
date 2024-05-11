@@ -2,8 +2,9 @@ from typing import List
 import customtkinter
 import os
 # from PIL import Image
-# from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-# import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 from main import DatabaseAPI
 
 dbAPI = DatabaseAPI()
@@ -119,6 +120,8 @@ class NavFrame(customtkinter.CTkFrame):
         self.select_frame_by_name("home")
 
     def inventory_button_event(self):
+        self.app.inventory.get_all_items()
+        self.app.inventory.table_frame.refresh_table(self.app.inventory.ui_items)
         self.select_frame_by_name("inventory")
 
     def order_button_event(self):
@@ -130,6 +133,10 @@ class NavFrame(customtkinter.CTkFrame):
         self.select_frame_by_name("menu")
 
     def finance_button_event(self):
+        # self.app.finance.destroy()
+        # self.app.finance.grid_forget()
+        # self.app.finance = FinanceFrame(self.app, self.app)
+        self.app.finance.refresh_data()
         self.select_frame_by_name("finance")
 
     def change_appearance_mode_event(self, new_appearance_mode):
@@ -166,10 +173,28 @@ class TableLine(customtkinter.CTkFrame):
             add_button.grid(row=row, column=button_column, padx=10, pady=(10, 0))
         
     def modify_table(self):
-        self.parent.refresh_table([["1", "Piz", "10", "UOM", "Amount"], ["2", "Piz", "10", "UOM", "Amount"], ["3", "Piz", "10", "UOM", "Amount"], ["4", "Piz", "10", "UOM", "Amount"], ["5", "Piz", "10", "UOM", "Amount"]])
+        if self.parent.column_names == ["Id", "Name", "Price", "UOM", "Amount"]: # Modify inventory item
+            item_id = self.values[0]
+            entry_popup = customtkinter.CTkInputDialog(text="Enter difference:", title="Modify inventory item amount")
+            try:
+                difference = float(entry_popup.get_input())
+            except:
+                popup = ErrorPopup(self, "Wrong amount entered")
+                self.app.wait_window(popup)
+                return
+            item = dbAPI.get_item_by_id(item_id)
+            res = dbAPI.add_inventory_item_amount(item.inventory_item, int(difference)) if difference > 0 else dbAPI.sub_inventory_item_amount(item.inventory_item, -int(difference))
+            if res is None:
+                popup = ErrorPopup(self, "Inventory item modification failed")
+                self.app.wait_window(popup)
+                return
+            inv_frame: InventoryFrame = self.parent.parent
+            inv_frame.get_all_items()
+            self.parent.refresh_table(inv_frame.ui_items)
+            
 
     def remove(self):
-        if self.parent.column_names == ["Menu Id", "Name", "Price"]:
+        if self.parent.column_names == ["Menu Id", "Name", "Price"]: # Remove menu item
             menu_id = self.values[0]
             menu_item = dbAPI.get_menu_item_by_id(menu_id)
             if menu_item is None:
@@ -185,12 +210,19 @@ class TableLine(customtkinter.CTkFrame):
             menu_frame.get_all_menu_items()
             self.parent.refresh_table(menu_frame.ui_items)
     
-        if self.parent.column_names == ["Id", "Value", "Date"]:
+        if self.parent.column_names == ["Id", "Value", "Date"]: # Remove order
             order_id = self.values[0]
-            # order = dbAPI.get_order
-            # dbAPI.delete_order()
+            order = dbAPI.get_order_by_id(order_id)
+            res = dbAPI.delete_order(order)
+            if res is None:
+                popup = ErrorPopup(self, "Order deletion failed")
+                self.app.wait_window(popup)
+                return
+            order_frame: OrderHistoryFrame = self.parent.parent
+            order_frame.get_all_orders()
+            self.parent.refresh_table(order_frame.ui_orders)
 
-        if self.parent.column_names == ["ID", "Name", "Permissions"]:
+        if self.parent.column_names == ["ID", "Name", "Permissions"]: # Remove user
             remove_user_popup: DynamicPopup = self.parent.parent
             remove_user_popup.attributes("-topmost", False)
             user_id = self.values[0]
@@ -209,7 +241,7 @@ class TableLine(customtkinter.CTkFrame):
     def add_item(self):
         add_popup: AddItemPopup = self.parent.parent
         add_popup.attributes("-topmost", False)
-        entry_popup = customtkinter.CTkInputDialog(text="Enter amount:", title="Amount")
+        entry_popup = customtkinter.CTkInputDialog(text="Enter amount:", title="Amount", )
         try:
             amount = float(entry_popup.get_input())
         except:
@@ -321,7 +353,7 @@ class HomeFrame(customtkinter.CTkFrame):
         if button_type == "order":
             form = DynamicPopup(self.app, "Create Order", [], create_order=True)
         elif button_type == "newuser":
-            form = DynamicPopup(self.app, "Create User", ["Userename:", "Permissions:", "Password:", "Your password:"])
+            form = DynamicPopup(self.app, "Create User", ["Username:", "Permissions:", "Password:", "Your password:"])
         elif button_type == "deleteuser":
             form = DynamicPopup(self.app, "Remove User", [], remove_users=True)
         self.app.wait_window(form)
@@ -352,6 +384,7 @@ class HomeFrame(customtkinter.CTkFrame):
             if new_order is None:
                 popup = ErrorPopup(self, "Order creation failed")
                 self.app.wait_window(popup)
+            
 
 
 class InventoryFrame(customtkinter.CTkFrame):
@@ -431,7 +464,7 @@ class OrderHistoryFrame(customtkinter.CTkFrame):
 
         self.get_all_orders()
 
-        self.table_frame = TableFrame(self, self.app, ["Id", "Value", "Date"], self.ui_orders, True, True, search=False)
+        self.table_frame = TableFrame(self, self.app, ["Id", "Value", "Date"], self.ui_orders, False, True, search=False)
         self.table_frame.grid(row=1, column=0, sticky="nwes", padx=50, pady=0)
 
         self.view_label = customtkinter.CTkLabel(self, text=f"Order History", font=("", 24, "bold"))
@@ -508,6 +541,8 @@ class MenuFrame(customtkinter.CTkFrame):
 
 
 class FinanceFrame(customtkinter.CTkFrame):
+    MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+
     def __init__(self, master, app):
         super().__init__(master, corner_radius=0, fg_color="transparent")
 
@@ -517,27 +552,39 @@ class FinanceFrame(customtkinter.CTkFrame):
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-
         self.view_label = customtkinter.CTkLabel(self, text=f"Finance", font=("", 24, "bold"))
         self.view_label.grid(row=0, column=0, sticky="nwes", padx=(0, 0), columnspan=2)
         self.signed_in_label = customtkinter.CTkLabel(self, text=f"Signed in as: {self.app.user}")
         self.signed_in_label.grid(row=0, column=2, padx=20, pady=20, sticky="e")
 
-        # fig, ax = plt.subplots(facecolor='lightgrey')
-        # ax.plot(["October", "November", "December", "January"], [1, 4, 2, 3])
-        # ax.set_title("Monthly revenue")
+        self.fig, self.ax = plt.subplots(facecolor='lightgrey')
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self)
 
-        # fig2, ax2 = plt.subplots(facecolor='darkgrey')
-        # ax2.bar(["October", "November", "December", "January"], [1, 4, 2, 3])
-        # ax2.set_title("Monthly orders")
+        self.fig2, self.ax2 = plt.subplots(facecolor='darkgrey')
+        self.canvas2 = FigureCanvasTkAgg(self.fig2, master=self)
 
-        # canvas = FigureCanvasTkAgg(fig, master=self)
-        # canvas.draw()       
-        # canvas.get_tk_widget().grid(row=1, column=0)
+        self.canvas.get_tk_widget().grid(row=1, column=0)
+        self.canvas2.get_tk_widget().grid(row=1, column=1)
 
-        # canvas2 = FigureCanvasTkAgg(fig2, master=self)
-        # canvas2.draw()
-        # canvas2.get_tk_widget().grid(row=1, column=1)
+        self.refresh_data()
+
+    def refresh_data(self):
+        finance_res = dbAPI.get_this_year_statistics()
+        orders = [s[0] for s in finance_res]
+        revenue = [s[1] for s in finance_res]
+
+        self.ax.clear()
+        self.ax.plot(self.MONTHS[:len(revenue)], revenue)
+        self.ax.set_title("Monthly revenue")
+        self.ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+
+        self.ax2.clear()
+        self.ax2.bar(self.MONTHS[:len(orders)], orders)
+        self.ax2.set_title("Monthly orders")
+        self.ax2.yaxis.set_major_locator(MaxNLocator(integer=True))
+
+        self.canvas.draw()
+        self.canvas2.draw()
 
     
 class CustomMultiInputDialog(customtkinter.CTkToplevel):
@@ -554,6 +601,8 @@ class CustomMultiInputDialog(customtkinter.CTkToplevel):
         for i, prompt in enumerate(prompts):
             label = customtkinter.CTkLabel(self, text=prompt)
             label.grid(row=i*2, column=0, padx=20, pady=0, columnspan=2)
+            if prompt == "Password":
+                entry = customtkinter.CTkEntry(self, show="*")
             entry = customtkinter.CTkEntry(self)
             entry.grid(row=i*2+1, column=0, padx=20, pady=0, sticky="we", columnspan=2)
             self.input_entries.append(entry)
@@ -637,7 +686,7 @@ class DynamicPopup(customtkinter.CTkToplevel):
             return
         self.ui_items = []
         for user in users:
-            values = [user.id, user.id, user.permissions]
+            values = [user.id, user.username, user.permissions]
             self.ui_items.append(values)
 
     def add_to_order(self):
