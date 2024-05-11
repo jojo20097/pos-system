@@ -1,6 +1,7 @@
 from sqlalchemy import create_engine, ForeignKey
 from sqlalchemy.orm import relationship, Session, DeclarativeBase, Mapped, mapped_column
 from typing import Optional, Union
+from sqlalchemy import extract
 from dotenv import dotenv_values
 from fuzzywuzzy import fuzz
 import datetime
@@ -776,7 +777,7 @@ class OrderInterface:
         return value
 
     def __get_this_year_orders__(self) -> list["Order"]:
-        return session.query(Order).filter(Order.date.cast(datetime.date).year == datetime.date.today().year).all()
+        return session.query(Order).filter(extract('year', Order.date) == datetime.datetime.now().year).all()
 
     def get_orders(self) -> list["Order"]:
         return session.query(Order).all()
@@ -1325,4 +1326,4 @@ handler = DatabaseAPI()
 
 print(handler.login("root", "root"))
 
-menu_items = handler.get_menu_items()
+a = handler.get_this_year_statistics()
