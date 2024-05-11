@@ -56,6 +56,11 @@ database_seed()
 
 # flake8: noqa
 
+def nav_button(self, text: str, command) -> customtkinter.CTkButton:
+    return customtkinter.CTkButton(self, corner_radius=0, height=40, border_spacing=10, text=text,
+                                    fg_color="transparent", text_color=("gray10", "gray90"), hover_color=("gray70", "gray30"),
+                                    anchor="w", command=command)
+
 class NavFrame(customtkinter.CTkFrame):
     def __init__(self, master, app):
         super().__init__(master, corner_radius=0)
@@ -68,29 +73,19 @@ class NavFrame(customtkinter.CTkFrame):
                                                              compound="left", font=customtkinter.CTkFont(size=15, weight="bold"))
         self.navigation_frame_label.grid(row=0, column=0, padx=20, pady=20)
 
-        self.home_button = customtkinter.CTkButton(self, corner_radius=0, height=40, border_spacing=10, text="Home",
-                                                   fg_color="transparent", text_color=("gray10", "gray90"), hover_color=("gray70", "gray30"),
-                                                   anchor="w", command=self.home_button_event)
+        self.home_button = nav_button(self, "Home", self.home_button_event)
         self.home_button.grid(row=1, column=0, sticky="ew")
 
-        self.inventory_button = customtkinter.CTkButton(self, corner_radius=0, height=40, border_spacing=10, text="Inventory",
-                                                      fg_color="transparent", text_color=("gray10", "gray90"), hover_color=("gray70", "gray30"),
-                                                      anchor="w", command=self.inventory_button_event)
+        self.inventory_button = nav_button(self, "Inventory", self.inventory_button_event)
         self.inventory_button.grid(row=2, column=0, sticky="ew")
 
-        self.order_button = customtkinter.CTkButton(self, corner_radius=0, height=40, border_spacing=10, text="Order History",
-                                                      fg_color="transparent", text_color=("gray10", "gray90"), hover_color=("gray70", "gray30"),
-                                                      anchor="w", command=self.order_button_event)
+        self.order_button = nav_button(self, "Order History", self.order_button_event)
         self.order_button.grid(row=3, column=0, sticky="ew")
 
-        self.menu_button = customtkinter.CTkButton(self, corner_radius=0, height=40, border_spacing=10, text="Menu",
-                                                      fg_color="transparent", text_color=("gray10", "gray90"), hover_color=("gray70", "gray30"),
-                                                      anchor="w", command=self.menu_button_event)
+        self.menu_button = nav_button(self, "Menu", self.menu_button_event)
         self.menu_button.grid(row=4, column=0, sticky="ew")
 
-        self.finance_button = customtkinter.CTkButton(self, corner_radius=0, height=40, border_spacing=10, text="Finance",
-                                                      fg_color="transparent", text_color=("gray10", "gray90"), hover_color=("gray70", "gray30"),
-                                                      anchor="w", command=self.finance_button_event)
+        self.finance_button = nav_button(self, "Finance", self.finance_button_event)
         self.finance_button.grid(row=5, column=0, sticky="ew")
 
         self.appearance_mode_menu = customtkinter.CTkOptionMenu(self, values=["Dark", "Light", "System"],
@@ -100,6 +95,7 @@ class NavFrame(customtkinter.CTkFrame):
         self.change_appearance_mode_event("Dark")
 
     def select_frame_by_name(self, name):
+
         self.home_button.configure(fg_color=("gray75", "gray25") if name == "home" else "transparent")
         self.inventory_button.configure(fg_color=("gray75", "gray25") if name == "inventory" else "transparent")
         self.order_button.configure(fg_color=("gray75", "gray25") if name == "order" else "transparent")
@@ -359,6 +355,7 @@ class HomeFrame(customtkinter.CTkFrame):
 
 
 class InventoryFrame(customtkinter.CTkFrame):
+
     def __init__(self, master, app):
         super().__init__(master, corner_radius=0, fg_color="transparent")
 
@@ -380,15 +377,18 @@ class InventoryFrame(customtkinter.CTkFrame):
         self.add_item_button = customtkinter.CTkButton(self, text="Add item", command=self.open_popup_form)
         self.add_item_button.grid(row=2, column=1, padx=50, pady=20, sticky="e")
 
-    def get_all_items(self):
-        inventory_items = dbAPI.get_inventory_items()
-        if inventory_items is None:
-            popup = ErrorPopup(self, "Getting inventory items failed")
+    def get_all_items(self) -> None:
+
+        items = dbAPI.get_items()
+
+        if items is None:
+            popup = ErrorPopup(self, "Loading inventory failed !")
             self.app.wait_window(popup)
             return
+
         self.ui_items = []
-        for item in inventory_items:
-            values = [item.item.id, item.item.name, item.item.value_per_uom, item.item.uom, item.amount]
+        for item in items:
+            values = [item.id, item.name, item.value_per_uom, item.uom, item.inventory_item.amount]
             self.ui_items.append(values)
 
     def open_popup_form(self):
@@ -494,7 +494,6 @@ class MenuFrame(customtkinter.CTkFrame):
             return
         self.get_all_menu_items()
         self.table_frame.refresh_table(self.ui_items)
-
 
     def get_all_menu_items(self):
         menu_items = dbAPI.get_menu_items()
@@ -659,12 +658,18 @@ class DynamicPopup(customtkinter.CTkToplevel):
                     popup = ErrorPopup(self, "Menu item fetch failed")
                     self.app.wait_window(popup)
                     return
+                order_item = dbAPI.add_order_item(menu_item, amount)
+                if order_item is None:
+                    popup = ErrorPopup(self, "Addition of menu item failed")
+                    self.app.wait_window(popup)
+                    return
+                
                 cost = menu_item.cost * int(amount)
                 format_cost = f"{cost:.2f} EUR"
                 values = [menu_item.name, amount, format_cost]
                 self.total += cost
                 self.ui_items.append(values)
-                self.items.append(menu_item)
+                self.items.append(order_item)
             self.refresh_total_cost_label()
         
         if create_type == "menu":
@@ -696,6 +701,7 @@ class DynamicPopup(customtkinter.CTkToplevel):
 
 
 class AddItemPopup(customtkinter.CTkToplevel):
+
     def __init__(self, parent, app, create_type):
         super().__init__(parent)
         self.attributes("-topmost", True)
@@ -776,10 +782,11 @@ class ErrorPopup(customtkinter.CTkToplevel):
 
 
 class App(customtkinter.CTk):
+
     def __init__(self):
         super().__init__()
 
-        self.user = "Admin"
+        self.user = dbAPI.user_int.user.username
 
         self.title("POS System")
         self.geometry("1920x1080+320+100")
@@ -790,6 +797,7 @@ class App(customtkinter.CTk):
 
         
     def init_frames(self):
+    
         self.navigation_frame = NavFrame(master=self, app=self)
 
         # create home frame
@@ -808,17 +816,19 @@ class App(customtkinter.CTk):
 
 
 if __name__ == "__main__":
+
     app = App()
+
     x_position = (app.winfo_screenwidth() - 300) // 2  # Center horizontally
     y_position = (app.winfo_screenheight() - 350) // 2  # Center vertically
-    auth = False
-    # while not auth:
-    #     dialog = CustomMultiInputDialog(app, "Sign In", ["ID:", "Password:"])
-    #     dialog.geometry(f"300x200+{x_position}+{y_position}")
-    #     app.wait_window(dialog)
-    #     if dbAPI.login(int(dialog.input_values[0]), dialog.input_values[1]):
-    #         app.user = dialog.input_values[0]
-    #         auth = True
+
+    while True:
+        dialog = CustomMultiInputDialog(app, "Sign In", ["Username:", "Password:"])
+        dialog.geometry(f"300x200+{x_position}+{y_position}")
+        app.wait_window(dialog)
+        if dbAPI.login(dialog.input_values[0], dialog.input_values[1]):
+            break
+
     app.init_frames()
     app.navigation_frame.grid(row=0, column=0, sticky="nsew")
     app.navigation_frame.select_frame_by_name("home")

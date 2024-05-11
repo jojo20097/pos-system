@@ -823,7 +823,7 @@ class OrderInterface:
 
 class DatabaseAPI:
 
-    __user_int__: UserInterface = UserInterface()
+    user_int: UserInterface = UserInterface()
     __item_int__: ItemInterface = ItemInterface()
     __inventory_item_int__: InventoryItemInterface = InventoryItemInterface()
     __menu_resource_int__: MenuResourceInterface = MenuResourceInterface()
@@ -833,10 +833,10 @@ class DatabaseAPI:
 
     def __valid_call__(self, *essential_permissions) -> bool:
 
-        if self.__user_int__.user is None:
+        if self.user_int.user is None:
             return False
     
-        if self.__user_int__.user.permissions not in essential_permissions:
+        if self.user_int.user.permissions not in essential_permissions:
             return False
     
         return True
@@ -850,7 +850,7 @@ class DatabaseAPI:
         if not self.__valid_call__("root", "admin", "employee"):
             return None
 
-        return self.__user_int__.get_users()
+        return self.user_int.get_users()
     
     def get_user_by_id(self, id: int) -> Optional["User"]:
 
@@ -859,7 +859,7 @@ class DatabaseAPI:
         if not self.__valid_call__("root", "admin", "employee"):
             return None
         
-        return self.__user_int__.get_user_by_id(id)
+        return self.user_int.get_user_by_id(id)
     
     def get_user_by_username(self, username: str) -> Optional["User"]:
 
@@ -868,13 +868,13 @@ class DatabaseAPI:
         if not self.__valid_call__("root", "admin", "employee"):
             return None
         
-        return self.__user_int__.get_user_by_username(username)
+        return self.user_int.get_user_by_username(username)
     
     def login(self, username: str, password: str) -> Optional["User"]:
         
         '''Logs in user given username and password'''
 
-        return self.__user_int__.login(username, password)
+        return self.user_int.login(username, password)
     
     def logout(self) -> Optional["User"]:
 
@@ -883,7 +883,7 @@ class DatabaseAPI:
         if not self.__valid_call__("root", "admin", "employee"):
             return None
         
-        return self.__user_int__.logout()
+        return self.user_int.logout()
     
     def create_user(self, username: str, current_user_password: str, new_user_password: str, permissions: str) -> Optional["User"]:
         
@@ -892,7 +892,7 @@ class DatabaseAPI:
         if not self.__valid_call__("root", "admin", "employee"):
             return None
         
-        return self.__user_int__.create_user(username, current_user_password, new_user_password, permissions)
+        return self.user_int.create_user(username, current_user_password, new_user_password, permissions)
     
     def change_username(self, new_username: str, password: str) -> Optional["User"]:
 
@@ -901,7 +901,7 @@ class DatabaseAPI:
         if not self.__valid_call__("root", "admin", "employee"):
             return None
         
-        return self.__user_int__.change_username(new_username, password)
+        return self.user_int.change_username(new_username, password)
     
     def change_password(self, old_password: str, new_password: str) -> Optional["User"]:
 
@@ -910,7 +910,7 @@ class DatabaseAPI:
         if not self.__valid_call__("root", "admin", "employee"):
             return None
         
-        return self.__user_int__.change_password(old_password, new_password)
+        return self.user_int.change_password(old_password, new_password)
     
     def delete_user(self, target: User, user_password: str) -> Optional["User"]:
 
@@ -919,7 +919,7 @@ class DatabaseAPI:
         if not self.__valid_call__("root", "admin"):
             return None
         
-        return self.__user_int__.delete_user(target, user_password)
+        return self.user_int.delete_user(target, user_password)
     
     # --- Item API --- #
 
