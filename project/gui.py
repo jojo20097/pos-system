@@ -828,7 +828,7 @@ class ErrorPopup(customtkinter.CTkToplevel):
         self.app: "App" = parent
         self.title("Error")
         
-        self.geometry("400x225+1080+450")
+        self.geometry("400x225+1080+525")
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
