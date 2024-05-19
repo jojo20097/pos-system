@@ -222,7 +222,7 @@ class TableLine(customtkinter.CTkFrame):
             remove_user_popup: DynamicPopup = self.parent.parent
             remove_user_popup.attributes("-topmost", False)
             user_id = self.values[0]
-            entry_popup = customtkinter.CTkInputDialog(text="Password", title="User deletion auth")
+            entry_popup = MyInputDialog(text="Password", title="User deletion auth")
             password = entry_popup.get_input()
             remove_user_popup.attributes("-topmost", False)
             usr = dbAPI.get_user_by_id(user_id)
@@ -237,7 +237,7 @@ class TableLine(customtkinter.CTkFrame):
     def add_item(self):
         add_popup: AddItemPopup = self.parent.parent
         add_popup.attributes("-topmost", False)
-        entry_popup = customtkinter.CTkInputDialog(text="Enter amount:", title="Amount", )
+        entry_popup = MyInputDialog(text="Enter amount:", title="Amount", )
         try:
             amount = float(entry_popup.get_input())
         except:
@@ -619,7 +619,7 @@ class MyInputDialog(customtkinter.CTkInputDialog):
     def __init__(self, text, title):
         super().__init__(text=text, title=title)
 
-        self.geometry("250x120+1030+600")
+        self.geometry("300x150+980+600")
 
 
 class DynamicPopup(customtkinter.CTkToplevel):
