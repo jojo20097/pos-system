@@ -619,7 +619,7 @@ class MyInputDialog(customtkinter.CTkInputDialog):
     def __init__(self, text, title):
         super().__init__(text=text, title=title)
 
-        self.geometry("300x150+980+600")
+        self.geometry("300x150+1130+600")
 
 
 class DynamicPopup(customtkinter.CTkToplevel):
