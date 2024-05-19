@@ -70,10 +70,6 @@ class NavFrame(customtkinter.CTkFrame):
 
         self.grid_rowconfigure(6, weight=1)
 
-        self.navigation_frame_label = customtkinter.CTkLabel(self, text="  Image Example",
-                                                             compound="left", font=customtkinter.CTkFont(size=15, weight="bold"))
-        self.navigation_frame_label.grid(row=0, column=0, padx=20, pady=20)
-
         self.home_button = nav_button(self, "Home", self.home_button_event)
         self.home_button.grid(row=1, column=0, sticky="ew")
 
@@ -175,7 +171,7 @@ class TableLine(customtkinter.CTkFrame):
     def modify_table(self):
         if self.parent.column_names == ["Id", "Name", "Price", "UOM", "Amount"]: # Modify inventory item
             item_id = self.values[0]
-            entry_popup = customtkinter.CTkInputDialog(text="Enter difference:", title="Modify inventory item amount")
+            entry_popup = MyInputDialog(text="Enter difference:", title="Modify inventory item amount")
             try:
                 difference = float(entry_popup.get_input())
             except:
@@ -618,6 +614,12 @@ class CustomMultiInputDialog(customtkinter.CTkToplevel):
         self.input_values = [entry.get() for entry in self.input_entries]
         print(self.input_values)
         self.destroy()
+
+class MyInputDialog(customtkinter.CTkInputDialog):
+    def __init__(self, text, title):
+        super().__init__(text=text, title=title)
+
+        self.geometry("250x120+1030+600")
 
 
 class DynamicPopup(customtkinter.CTkToplevel):
