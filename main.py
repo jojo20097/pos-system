@@ -5,8 +5,8 @@ if __name__ == "__main__":
     dbAPI = DatabaseAPI()
     app = App()
 
-    x_position = (app.winfo_screenwidth() - 300) // 2  # Center horizontally
-    y_position = (app.winfo_screenheight() - 350) // 2  # Center vertically
+    x_position = (app.winfo_screenwidth() - 300)
+    y_position = (app.winfo_screenheight() - 350)
 
     username = ""
 
