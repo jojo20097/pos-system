@@ -45,4 +45,4 @@ python main.py
 - **Richard Truben** – Developed the **User Interface (/gui).**  
 
 ## **📜 License**  
-This project is licensed under the **MIT License** – feel free to use and modify it.  
+This project is licensed under the **MIT License**.  
