@@ -22,7 +22,7 @@ A simple **Point of Sale (POS) system** designed for restaurants, built using **
 
 1️⃣ **Clone the repository**  
 ```bash
-git clone https://github.com/jojo20097/pos-system.git
+git clone https://github.com/yourusername/pos-system.git
 cd pos-system
 ```
 
@@ -31,7 +31,23 @@ cd pos-system
 pip install -r requirements.txt
 ```
 
-3️⃣ **Run the application**  
+3️⃣ **Set up the database**  
+
+Run the script to **create the database schema**:  
+```bash
+python create_db.py
+```
+
+Run the script to **seed the database with initial data**:  
+```bash
+python seed_db.py
+```
+
+> **Default Admin Account:**  
+> - **Username:** `root`  
+> - **Password:** `root`  
+
+4️⃣ **Run the application**  
 ```bash
 python main.py
 ```
