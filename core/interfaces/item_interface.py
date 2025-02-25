@@ -4,6 +4,7 @@ from typing import Optional
 from fuzzywuzzy import fuzz
 from ..database import session
 
+
 class ItemInterface:
 
     __db_int__: DatabaseInterface = DatabaseInterface()
@@ -18,13 +19,13 @@ class ItemInterface:
 
     def get_items(self) -> list["Item"]:
         return session.query(Item).all()
-    
+
     def get_item_by_id(self, id: int) -> Optional["Item"]:
         return session.query(Item).filter_by(id=id).first()
-    
+
     def get_item_by_name(self, name: str) -> Optional["Item"]:
         return session.query(Item).filter_by(name=name).first()
-    
+
     def search_item(self, query: str) -> list["Item"]:
 
         items = []
@@ -48,14 +49,14 @@ class ItemInterface:
         self.__update_items__()
 
         return item
-    
+
     def edit_item_name(self, item: "Item", new_name: str) -> Optional["Item"]:
 
         item.name = new_name
 
         if not self.__db_int__.edit(item):
             return None
-        
+
         self.__update_items__()
 
         return item
@@ -66,7 +67,7 @@ class ItemInterface:
 
         if not self.__db_int__.edit(item):
             return None
-        
+
         self.__update_items__()
 
         return item
@@ -77,13 +78,13 @@ class ItemInterface:
 
         if not self.__db_int__.edit(item):
             return None
-        
+
         self.__update_items__()
 
         return item
 
     def delete_item(self, item: "Item") -> Optional["Item"]:
-        
+
         if not self.__db_int__.delete(item):
             return None
 

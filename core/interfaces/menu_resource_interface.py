@@ -3,6 +3,7 @@ from ..models import MenuResource, Item
 from typing import Optional
 from ..database import session
 
+
 class MenuResourceInterface:
 
     __db_int__: DatabaseInterface = DatabaseInterface()
@@ -17,7 +18,7 @@ class MenuResourceInterface:
 
     def get_resources(self) -> list["MenuResource"]:
         return session.query(MenuResource).all()
-    
+
     def get_resource_by_id(self, id: int) -> Optional["MenuResource"]:
         return session.query(MenuResource).filter_by(id=id).first()
 
@@ -27,7 +28,7 @@ class MenuResourceInterface:
 
         if not self.__db_int__.add(menu_resource):
             return None
-        
+
         self.__update_resources__()
 
         return menu_resource
@@ -36,7 +37,7 @@ class MenuResourceInterface:
 
         if not self.__db_int__.delete(item):
             return None
-        
+
         self.__update_resources__()
-        
+
         return item

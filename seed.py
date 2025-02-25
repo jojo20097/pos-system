@@ -1,27 +1,29 @@
 from api.database_api import DatabaseAPI
 from core import UserInterface
 
-
-
 items = [("salt", 1, "kg"), ("sugar", 1, "kg"),
-        ("water", 1, "l"), ("sunflower oil", 5, "l"),
-        ("butter", 15, "kg"), ("fat", 13, "kg"),
-        ("beans", 10, "kg"), ("corn", 9, "kg"),
-        ("spinach", 8, "kg"), ("tomatoes", 15, "kg"),
-        ("potatoes", 4, "kg"), ("bread", 3, "kg")]
+         ("water", 1, "l"), ("sunflower oil", 5, "l"),
+         ("butter", 15, "kg"), ("fat", 13, "kg"),
+         ("beans", 10, "kg"), ("corn", 9, "kg"),
+         ("spinach", 8, "kg"), ("tomatoes", 15, "kg"),
+         ("potatoes", 4, "kg"), ("bread", 3, "kg")
+         ]
 
-def root_user():
+
+def root_user() -> None:
     user = UserInterface()
     user.create_root("root", "root")
     user.login("root", "root")
 
+
 dbAPI = DatabaseAPI()
 handler = dbAPI
+
 
 def database_seed() -> None:
 
     for name, value, uom in items:
-        print(handler.add_item(name, value, uom))
+        handler.add_item(name, value, uom)
 
     db_items = handler.get_items()
 
@@ -40,7 +42,8 @@ def database_seed() -> None:
         return
 
     soup = handler.add_menu_item("soup", 10, [resources[0], resources[1]])
-    pizza  = handler.add_menu_item("pizza", 20, [resources[2], resources[3], resources[4], resources[5]])
+    pizza = handler.add_menu_item(
+        "pizza", 20, [resources[2], resources[3], resources[4], resources[5]])
 
     if soup is None or pizza is None:
         return
@@ -55,6 +58,6 @@ def database_seed() -> None:
 
 
 root_user()
-print("Successfully created root user")
+print("Created root user")
 database_seed()
-print("Successfully seeded")
+print("Seed successfull")

@@ -2,6 +2,7 @@ import customtkinter
 
 from ..frames.table_frame import TableFrame
 
+
 class AddItemPopup(customtkinter.CTkToplevel):
 
     def __init__(self, parent: customtkinter.CTkToplevel, app: "App", create_type: str, dbAPI) -> None:
@@ -32,20 +33,26 @@ class AddItemPopup(customtkinter.CTkToplevel):
             for item in items:
                 values = [item.id, item.name, item.value_per_uom, item.uom]
                 ui_items.append(values)
-            self.menu_table_frame = TableFrame(self, self.app, ["Item ID", "Name", "Cost", "UOM"], ui_items, False, False, True, True, False)
-            self.menu_table_frame.grid(row=0, column=0, columnspan=3, rowspan=6, padx=20, pady=20, sticky="nswe")
+            self.menu_table_frame = TableFrame(self, self.app, [
+                                               "Item ID", "Name", "Cost", "UOM"], ui_items, False, False, True, True, False)
+            self.menu_table_frame.grid(
+                row=0, column=0, columnspan=3, rowspan=6, padx=20, pady=20, sticky="nswe")
 
         if create_type == "order":
             self.app.menu.get_all_menu_items()
-            self.menu_table_frame = TableFrame(self, self.app, ["Menu Id", "Name", "Price"], self.app.menu.ui_items, False, False, True, True, False)
-            self.menu_table_frame.grid(row=0, column=0, columnspan=3, rowspan=6, padx=20, pady=20, sticky="nswe")
+            self.menu_table_frame = TableFrame(self, self.app, [
+                                               "Menu Id", "Name", "Price"], self.app.menu.ui_items, False, False, True, True, False)
+            self.menu_table_frame.grid(
+                row=0, column=0, columnspan=3, rowspan=6, padx=20, pady=20, sticky="nswe")
 
         # Add Confirm button
-        ok_button = customtkinter.CTkButton(self, text="Confirm", command=self.get_input_values)
+        ok_button = customtkinter.CTkButton(
+            self, text="Confirm", command=self.get_input_values)
         ok_button.grid(row=6, column=0, columnspan=1, padx=20, pady=20)
 
         # Add Cancel button
-        cancel_button = customtkinter.CTkButton(self, text="Cancel", command=self.close)
+        cancel_button = customtkinter.CTkButton(
+            self, text="Cancel", command=self.close)
         cancel_button.grid(row=6, column=2, padx=20, pady=20, sticky="we")
 
     def get_input_values(self) -> None:

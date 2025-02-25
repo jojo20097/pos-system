@@ -2,6 +2,7 @@ from .base import Base
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
+
 class InventoryItem(Base):
     __tablename__ = "inventory_items"
 

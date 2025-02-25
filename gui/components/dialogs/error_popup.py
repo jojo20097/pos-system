@@ -1,5 +1,6 @@
 import customtkinter
 
+
 class ErrorPopup(customtkinter.CTkToplevel):
 
     def __init__(self, parent: customtkinter.CTkFrame, error_description: str) -> None:
@@ -9,7 +10,7 @@ class ErrorPopup(customtkinter.CTkToplevel):
 
         self.app: "App" = parent
         self.title("Error")
-        
+
         self.geometry("400x225+1080+525")
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(0, weight=1)

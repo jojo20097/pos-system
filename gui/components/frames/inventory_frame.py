@@ -3,6 +3,7 @@ from ..frames.table_frame import TableFrame
 from ..dialogs.error_popup import ErrorPopup
 from ..dialogs.dynamic_popup import DynamicPopup
 
+
 class InventoryFrame(customtkinter.CTkFrame):
 
     def __init__(self, master, app, dbAPI):
@@ -17,15 +18,21 @@ class InventoryFrame(customtkinter.CTkFrame):
 
         self.get_all_items()
 
-        self.table_frame = TableFrame(self, self.app, ["Id", "Name", "Price", "UOM", "Amount"], self.ui_items, True, False, False)
+        self.table_frame = TableFrame(self, self.app, [
+                                      "Id", "Name", "Price", "UOM", "Amount"], self.ui_items, True, False, False)
         self.table_frame.grid(row=1, column=0, sticky="nwes", padx=50, pady=0)
 
-        self.view_label = customtkinter.CTkLabel(self, text=f"Inventory", font=("", 24, "bold"))
+        self.view_label = customtkinter.CTkLabel(
+            self, text=f"Inventory", font=("", 24, "bold"))
         self.view_label.grid(row=0, column=0, sticky="nwes", padx=(150, 0))
-        self.signed_in_label = customtkinter.CTkLabel(self, text=f"Signed in as: {self.app.user}")
-        self.signed_in_label.grid(row=0, column=1, padx=20, pady=20, sticky="e")
-        self.add_item_button = customtkinter.CTkButton(self, text="Add item", command=self.open_popup_form)
-        self.add_item_button.grid(row=2, column=1, padx=50, pady=20, sticky="e")
+        self.signed_in_label = customtkinter.CTkLabel(
+            self, text=f"Signed in as: {self.app.user}")
+        self.signed_in_label.grid(
+            row=0, column=1, padx=20, pady=20, sticky="e")
+        self.add_item_button = customtkinter.CTkButton(
+            self, text="Add item", command=self.open_popup_form)
+        self.add_item_button.grid(
+            row=2, column=1, padx=50, pady=20, sticky="e")
 
     def get_all_items(self) -> None:
 
@@ -38,11 +45,13 @@ class InventoryFrame(customtkinter.CTkFrame):
 
         self.ui_items = []
         for item in items:
-            values = [item.id, item.name, item.value_per_uom, item.uom, item.inventory_item.amount]
+            values = [item.id, item.name, item.value_per_uom,
+                      item.uom, item.inventory_item.amount]
             self.ui_items.append(values)
 
     def open_popup_form(self):
-        form = DynamicPopup(self.app, "Add Item", ["Name:", "Value:", "UOM:", "Amount:"], dbAPI=self.dbAPI)
+        form = DynamicPopup(self.app, "Add Item", [
+                            "Name:", "Value:", "UOM:", "Amount:"], dbAPI=self.dbAPI)
         self.app.wait_window(form)
         if form.cancelled:
             return

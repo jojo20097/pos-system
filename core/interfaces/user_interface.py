@@ -4,6 +4,7 @@ from typing import Optional
 import hashlib
 from ..database import session
 
+
 class UserInterface:
     _instance = None
     __db_int__: DatabaseInterface = DatabaseInterface()
@@ -18,7 +19,7 @@ class UserInterface:
             cls._instance = super(UserInterface, cls).__new__(cls)
             cls._instance.__initialized = False  # Track initialization
         return cls._instance
-    
+
     def __init__(self) -> None:
         if not self.__initialized:
             self.__update_users__()
@@ -33,7 +34,7 @@ class UserInterface:
         hashed_password = hasher.digest().hex()
 
         return hashed_password
-    
+
     def __verify_password__(self, user: "User", password: str) -> bool:
 
         hash = self.__make_hash__(password)
@@ -45,18 +46,17 @@ class UserInterface:
 
     def get_users(self) -> list["User"]:
         return session.query(User).all()
-    
+
     def get_user_by_id(self, id: int) -> Optional["User"]:
         return session.query(User).filter_by(id=id).first()
 
     def get_user_by_username(self, username: str) -> Optional["User"]:
         return session.query(User).filter_by(username=username).first()
 
-
     def login(self, username: str, password: str) -> Optional["User"]:
 
         user = self.get_user_by_username(username)
-        
+
         if user is None:
             return None
 
@@ -66,9 +66,9 @@ class UserInterface:
         self.user = user
 
         return user
-    
+
     def logout(self) -> Optional["User"]:
-        
+
         if self.user is None:
             return None
 
@@ -76,7 +76,7 @@ class UserInterface:
         self.user = None
 
         return user
-    
+
     def create_root(self, username: str, password: str) -> Optional["User"]:
 
         hashed_password = self.__make_hash__(password)
@@ -88,7 +88,7 @@ class UserInterface:
         self.__update_users__()
 
         return root_user
-    
+
     def create_user(self, username: str, current_user_password: str, new_user_password: str, permissions: str) -> Optional["User"]:
 
         if self.user is None:
@@ -120,16 +120,15 @@ class UserInterface:
 
         if not self.__verify_password__(self.user, password):
             return None
-        
+
         self.user.username = new_username
 
         if not self.__db_int__.edit(self.user):
             return None
-        
+
         self.__update_users__()
 
         return self.user
-
 
     def change_password(self, old_password: str, new_password: str) -> Optional["User"]:
 
@@ -144,11 +143,11 @@ class UserInterface:
 
         if not self.__db_int__.edit(self.user):
             return None
-        
+
         self.__update_users__()
 
         return self.user
-    
+
     def delete_user(self, target: User, user_password: str) -> Optional["User"]:
 
         if self.user is None:
@@ -159,11 +158,10 @@ class UserInterface:
 
         if self.user == target:
             return None
-        
+
         if not self.__db_int__.delete(target):
             return None
 
         self.__update_users__()
 
         return target
-        

@@ -11,7 +11,8 @@ if __name__ == "__main__":
     username = ""
 
     while True:
-        dialog = CustomMultiInputDialog(app, "Sign In", ["Username:", "Password:"])
+        dialog = CustomMultiInputDialog(
+            app, "Sign In", ["Username:", "Password:"])
         dialog.geometry(f"300x200+{x_position}+{y_position}")
         app.wait_window(dialog)
 
@@ -19,7 +20,7 @@ if __name__ == "__main__":
         if user_log:
             username = user_log.username
             break
-    
+
     app.init_frames(username)
     app.navigation_frame.grid(row=0, column=0, sticky="nsew")
     app.navigation_frame.select_frame_by_name("home")

@@ -5,8 +5,9 @@ import datetime
 from sqlalchemy import extract
 from ..database import session
 
+
 class OrderInterface:
-    
+
     __db_int__: DatabaseInterface = DatabaseInterface()
 
     orders: list["Order"]
@@ -22,7 +23,7 @@ class OrderInterface:
         for item in items:
             for resource in item.item.resources:
                 if resource.item.inventory_item.amount < resource.amount * item.amount:
-                    
+
                     return False
 
         for item in items:
@@ -33,11 +34,11 @@ class OrderInterface:
             return False
 
         self.__update_orders__()
-        
+
         return True
-    
+
     def __add_order_resources__(self, items: list["OrderItem"]) -> bool:
-        
+
         for item in items:
             for resource in item.item.resources:
                 resource.item.inventory_item.amount += resource.amount
@@ -46,13 +47,13 @@ class OrderInterface:
             return False
 
         self.__update_orders__()
-        
+
         return True
-    
+
     def __calc_order_value__(self, items: list["OrderItem"]) -> int:
-        
+
         value = 0
-        
+
         for item in items:
             value += item.amount * item.item.cost
 
@@ -63,10 +64,10 @@ class OrderInterface:
 
     def get_orders(self) -> list["Order"]:
         return session.query(Order).all()
-    
+
     def get_order_by_id(self, id: int) -> Optional["Order"]:
         return session.query(Order).filter_by(id=id).first()
-    
+
     def get_this_year_statistics(self) -> list[list[int]]:
 
         number_of_months = datetime.date.today().month
@@ -92,18 +93,18 @@ class OrderInterface:
             return None
 
         self.__update_orders__()
-        
+
         return order
 
     def edit_order(self, order: "Order", items: list["OrderItem"]) -> Optional["Order"]:
 
         if not self.__add_order_resources__(order.items):
             return None
-        
+
         if not self.__sub_order_resources__(items):
             self.__add_order_resources__(order.items)
             return None
-        
+
         order.value = self.__calc_order_value__(items)
         order.items = items
 
@@ -113,13 +114,13 @@ class OrderInterface:
         self.__update_orders__()
 
         return order
-    
+
     def delete_order(self, order: "Order") -> Optional["Order"]:
 
         if not self.__add_order_resources__(order.items):
             return None
-        
+
         if not self.__db_int__.delete(order):
             return None
-        
+
         return order

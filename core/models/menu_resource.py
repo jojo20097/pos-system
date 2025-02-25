@@ -2,6 +2,7 @@ from .base import Base
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
+
 class MenuResource(Base):
     __tablename__ = "menu_resources"
 
@@ -11,7 +12,8 @@ class MenuResource(Base):
     amount: Mapped[int] = mapped_column()
 
     item_id: Mapped[int] = mapped_column(ForeignKey("items.id"))
-    menu_items: Mapped[list["MenuItem"]] = relationship(secondary="resources_items", back_populates="resources")
+    menu_items: Mapped[list["MenuItem"]] = relationship(
+        secondary="resources_items", back_populates="resources")
 
     def __init__(self, item: "Item", amount: int) -> None:
         self.item = item

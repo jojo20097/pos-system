@@ -25,21 +25,25 @@ class TableFrame(customtkinter.CTkScrollableFrame):
         self.create_table()
 
         if search:
-            self.search = customtkinter.CTkEntry(self, width=250, placeholder_text="name...")
-            self.search.grid(row=0, column=len(column_names)+2, sticky="e", padx=50)
+            self.search = customtkinter.CTkEntry(
+                self, width=250, placeholder_text="name...")
+            self.search.grid(row=0, column=len(
+                column_names)+2, sticky="e", padx=50)
             self.search.bind("<Return>", self.get_search_string)
 
     def create_table(self):
         from ..table_line import TableLine
         # Create column labels
         for i, name in enumerate(self.column_names):
-            label = customtkinter.CTkLabel(self, text=name, font=("", 15, "bold"))
+            label = customtkinter.CTkLabel(
+                self, text=name, font=("", 15, "bold"))
             label.grid(row=0, column=i, padx=10, pady=(10, 0), sticky="")
             self.columns.append(label)
 
         # Create TableLine instances
         for row, values in enumerate(self.values):
-            self.lines.append(TableLine(self, self.app, row+1, values, self.modify, self.remove, self.add, dbAPI=self.dbAPI))
+            self.lines.append(TableLine(self, self.app, row+1, values,
+                              self.modify, self.remove, self.add, dbAPI=self.dbAPI))
 
     def refresh_table(self, new_values):
         from ..table_line import TableLine
@@ -52,7 +56,8 @@ class TableFrame(customtkinter.CTkScrollableFrame):
         self.values = new_values
         # Recreate TableLine instances with updated values
         for row, values in enumerate(self.values):
-            line = TableLine(self, self.app, row+1, values, self.modify, self.remove, self.add, dbAPI=self.dbAPI)
+            line = TableLine(self, self.app, row+1, values,
+                             self.modify, self.remove, self.add, dbAPI=self.dbAPI)
             self.lines.append(line)
 
     def get_search_string(self, sequence):
@@ -67,7 +72,8 @@ class TableFrame(customtkinter.CTkScrollableFrame):
             inv_items = self.dbAPI.search_item(string)
             if inv_items is not None:
                 for item in inv_items:
-                    values = [item.id, item.name, item.value_per_uom, item.uom, item.inventory_item.amount]
+                    values = [item.id, item.name, item.value_per_uom,
+                              item.uom, item.inventory_item.amount]
                     new_values.append(values)
         else:
             menu_items = self.dbAPI.search_menu_item(string)

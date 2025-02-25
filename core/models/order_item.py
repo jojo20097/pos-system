@@ -2,6 +2,7 @@ from .base import Base
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
+
 class OrderItem(Base):
     __tablename__ = "order_items"
 
@@ -11,7 +12,8 @@ class OrderItem(Base):
     amount: Mapped[int] = mapped_column()
 
     item_id: Mapped[int] = mapped_column(ForeignKey("menu_items.id"))
-    orders: Mapped[list["Order"]] = relationship(secondary="orders_order_items", back_populates="items")
+    orders: Mapped[list["Order"]] = relationship(
+        secondary="orders_order_items", back_populates="items")
 
     def __init__(self, item: "MenuItem", amount: int) -> None:
         self.item = item

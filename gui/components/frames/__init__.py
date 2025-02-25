@@ -6,4 +6,5 @@ from .nav_frame import NavFrame
 from .order_history_frame import OrderHistoryFrame
 from .table_frame import TableFrame
 
-__all__ = ["FinanceFrame", "HomeFrame", "InventoryFrame", "MenuFrame", "NavFrame", "OrderHistoryFrame", "TableFrame"]
+__all__ = ["FinanceFrame", "HomeFrame", "InventoryFrame",
+           "MenuFrame", "NavFrame", "OrderHistoryFrame", "TableFrame"]

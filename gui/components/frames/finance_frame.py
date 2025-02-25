@@ -3,23 +3,29 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 
+
 class FinanceFrame(customtkinter.CTkFrame):
-    MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+    MONTHS = ["January", "February", "March", "April", "May", "June",
+              "July", "August", "September", "October", "November", "December"]
 
     def __init__(self, master, app, dbAPI):
         super().__init__(master, corner_radius=0, fg_color="transparent")
 
-        self.app: App = app
+        self.app: "App" = app
         self.dbAPI = dbAPI
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
-        self.view_label = customtkinter.CTkLabel(self, text=f"Finance", font=("", 24, "bold"))
-        self.view_label.grid(row=0, column=0, sticky="nwes", padx=(0, 0), columnspan=2)
-        self.signed_in_label = customtkinter.CTkLabel(self, text=f"Signed in as: {self.app.user}")
-        self.signed_in_label.grid(row=0, column=2, padx=20, pady=20, sticky="e")
+        self.view_label = customtkinter.CTkLabel(
+            self, text=f"Finance", font=("", 24, "bold"))
+        self.view_label.grid(row=0, column=0, sticky="nwes",
+                             padx=(0, 0), columnspan=2)
+        self.signed_in_label = customtkinter.CTkLabel(
+            self, text=f"Signed in as: {self.app.user}")
+        self.signed_in_label.grid(
+            row=0, column=2, padx=20, pady=20, sticky="e")
 
         self.fig, self.ax = plt.subplots(facecolor='lightgrey')
         self.canvas = FigureCanvasTkAgg(self.fig, master=self)

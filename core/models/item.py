@@ -1,6 +1,7 @@
 from .base import Base
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
+
 class Item(Base):
     __tablename__ = "items"
 
@@ -10,7 +11,8 @@ class Item(Base):
     value_per_uom: Mapped[int] = mapped_column()
     uom: Mapped[str] = mapped_column()
 
-    inventory_item: Mapped["InventoryItem"] = relationship(back_populates="item", uselist=False, cascade="all")
+    inventory_item: Mapped["InventoryItem"] = relationship(
+        back_populates="item", uselist=False, cascade="all")
     menu_resources: Mapped[list["MenuResource"]] = relationship(cascade="all")
 
     def __init__(self, name: str, value_per_uom: int, uom: str) -> None:

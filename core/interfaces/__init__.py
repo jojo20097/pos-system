@@ -7,7 +7,7 @@ from .order_item_interface import OrderItemInterface
 from .order_interface import OrderInterface
 from .database_interface import DatabaseInterface
 
-__all__ = [ "UserInterface", "ItemInterface",
-            "InventoryItemInterface", "MenuItemInterface",
-            "MenuResourceInterface", "OrderItemInterface",
-            "OrderInterface", "DatabaseInterface" ]
+__all__ = ["UserInterface", "ItemInterface",
+           "InventoryItemInterface", "MenuItemInterface",
+           "MenuResourceInterface", "OrderItemInterface",
+           "OrderInterface", "DatabaseInterface"]

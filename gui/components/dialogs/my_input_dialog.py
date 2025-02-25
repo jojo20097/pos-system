@@ -1,5 +1,6 @@
 import customtkinter
 
+
 class MyInputDialog(customtkinter.CTkInputDialog):
     def __init__(self, text, title):
         super().__init__(text=text, title=title)

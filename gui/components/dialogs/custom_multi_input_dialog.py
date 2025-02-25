@@ -1,5 +1,6 @@
 import customtkinter
 
+
 class CustomMultiInputDialog(customtkinter.CTkToplevel):
     def __init__(self, parent, title, prompts):
         super().__init__()
@@ -17,12 +18,15 @@ class CustomMultiInputDialog(customtkinter.CTkToplevel):
             if prompt == "Password":
                 entry = customtkinter.CTkEntry(self, show="*")
             entry = customtkinter.CTkEntry(self)
-            entry.grid(row=i*2+1, column=0, padx=20, pady=0, sticky="we", columnspan=2)
+            entry.grid(row=i*2+1, column=0, padx=20,
+                       pady=0, sticky="we", columnspan=2)
             self.input_entries.append(entry)
 
         # Add OK button
-        ok_button = customtkinter.CTkButton(self, text="OK", command=self.get_input_values)
-        ok_button.grid(row=len(prompts)+2, column=0, columnspan=2, padx=20, pady=20, sticky="we")
+        ok_button = customtkinter.CTkButton(
+            self, text="OK", command=self.get_input_values)
+        ok_button.grid(row=len(prompts)+2, column=0,
+                       columnspan=2, padx=20, pady=20, sticky="we")
 
         password_entry: customtkinter.CTkEntry = self.input_entries[1]
         password_entry.bind("<Return>", self.get_input_values)
