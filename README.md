@@ -41,7 +41,7 @@ python main.py
 - **Jozef Tadian** – [@jojo20097](https://github.com/jojo20097)  
 - **Richard Truben** – [@RTruben](https://github.com/RTruben)  
 
-- **Jozef Tadian** – Implemented **database management and order processing (/api; /core)*.*
+- **Jozef Tadian** – Implemented **Database Management (/api; /core)*.*
 - **Richard Truben** – Developed the **User Interface (/gui).**  
 
 ## **📜 License**  
