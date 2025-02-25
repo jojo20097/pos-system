@@ -6,7 +6,7 @@ if __name__ == "__main__":
     app = App()
 
     x_position = (app.winfo_screenwidth() - 300)
-    y_position = (app.winfo_screenheight() - 200)
+    y_position = (app.winfo_screenheight() - 300)
 
     username = ""
 

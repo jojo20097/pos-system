@@ -10,9 +10,11 @@ class App(customtkinter.CTk):
         self.user = ""
 
         self.title("POS System")
-        self.geometry("1920x1080+320+100")
+        screen_width = self.winfo_screenwidth() - 320
+        screen_height = self.winfo_screenheight() - 180
 
-        # set grid layout 1x2
+        self.geometry(f"{screen_width}x{screen_height}+320+90")
+        
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=1)
 
